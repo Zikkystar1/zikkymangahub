@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOSHIRO MANGA HUB - Premium Manhwa Reader</title>
+    <link rel="stylesheet" href="./style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+    <!-- Animated Particles Background -->
+    <div class="particles" id="particles"></div>
+
+    <!-- Main Navigation -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <div class="brand-logo">
+                <i class="fas fa-book-open"></i>
+            </div>
+            <span class="brand-name">TOSHIRO<span class="brand-highlight">MANGA</span></span>
+        </div>
+        
+        <!-- Hamburger Menu -->
+        <div class="menu-toggle" id="menuToggle">
+            <i class="fas fa-bars"></i>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="nav-links" id="navLinks">
+            <a href="#home" class="active"><i class="fas fa-home"></i> Home</a>
+            <a href="#popular"><i class="fas fa-fire"></i> Popular</a>
+            <a href="#bookmarks"><i class="fas fa-bookmark"></i> Bookmarks</a>
+            <a href="#downloads"><i class="fas fa-download"></i> Downloads</a>
+            <a href="./contact.html" class="contact-btn"><i class="fas fa-envelope"></i> Contact Me</a>
+        </div>
+
+        <!-- Theme Toggle -->
+        <button class="theme-toggle" id="themeToggle">
+            <i class="fas fa-moon"></i>
+        </button>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container" id="home">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <span class="gradient-text">𝐓𝐎𝐒𝐇𝐈𝐑𝐎</span>
+                </h1>
+                <h1 class="hero-title">
+                    <span class="fancy-font">𝐌𝐀𝐍𝐆𝐀</span> <br>
+                    <span class="fancy-font">𝐇𝐔𝐁</span>
+                </h1>
+                
+                <!-- Search Bar -->
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="Search for your favorite manhwa...">
+                    <button id="searchBtn"><i class="fas fa-search"></i> Search</button>
+                </div>
+
+                <!-- Genre Filters -->
+                <div class="genre-filters">
+                    <button class="filter-btn active" data-genre="all">All</button>
+                    <button class="filter-btn" data-genre="action">Action</button>
+                    <button class="filter-btn" data-genre="romance">Romance</button>
+                    <button class="filter-btn" data-genre="fantasy">Fantasy</button>
+                    <button class="filter-btn" data-genre="comedy">Comedy</button>
+                    <button class="filter-btn" data-genre="adventure">Adventure</button>
+                    <button class="filter-btn" data-genre="horror">Horror</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content Area -->
+        <div class="content-area">
+            <!-- Results Grid -->
+            <div id="results" class="manga-grid"></div>
+            
+            <!-- Loading Indicator -->
+            <div class="loading" id="loading">
+                <i class="fas fa-spinner"></i>
+                <span>Loading amazing content...</span>
+            </div>
+
+            <!-- End of Results Marker (permanent footer) -->
+            <div class="end-results" id="endResults" style="display: none;">
+                <div class="end-results-content">
+                    <i class="fas fa-check-circle"></i>
+                    <span>𝐘𝐨𝐮'𝐯𝐞 𝐫𝐞𝐚𝐜𝐡𝐞𝐝 𝐭𝐡𝐞 𝐞𝐧𝐝</span>
+                    <span class="fancy-font-light">𝐧𝐨 𝐦𝐨𝐫𝐞 𝐦𝐚𝐧𝐠𝐚 𝐭𝐨 𝐥𝐨𝐚𝐝</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manga Details Page (instead of modal) -->
+    <div class="details-page" id="detailsPage" style="display: none;">
+        <div class="details-container">
+            <!-- Back Button -->
+            <button class="back-button" id="backFromDetails">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Home</span>
+            </button>
+
+            <!-- Manga Details Content -->
+            <div class="manga-details-wrapper" id="mangaDetailsWrapper">
+                <!-- Content will be populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Reader Page -->
+    <div class="reader-page" id="readerPage" style="display: none;">
+        <div class="reader-container">
+            <!-- Reader Header -->
+            <div class="reader-header">
+                <button class="back-button" id="backFromReader">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>Back to Details</span>
+                </button>
+                <div class="reader-title" id="readerTitle"></div>
+                <div class="reader-controls">
+                    <button class="reader-nav-btn" id="prevChapterBtn"><i class="fas fa-chevron-left"></i></button>
+                    <span id="chapterIndicator">Chapter 1/?</span>
+                    <button class="reader-nav-btn" id="nextChapterBtn"><i class="fas fa-chevron-right"></i></button>
+                    <button class="reader-nav-btn" id="downloadCurrentBtn"><i class="fas fa-download"></i></button>
+                </div>
+            </div>
+
+            <!-- Reader Body -->
+            <div class="reader-body" id="readerBody"></div>
+        </div>
+    </div>
+
+    <!-- Download Options Modal (small modal for downloads) -->
+    <div class="modal" id="downloadOptionsModal">
+        <div class="modal-content download-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-download"></i> Download Options</h3>
+                <button class="close-modal"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="chapter-info" id="downloadChapterInfo"></div>
+                
+                <div class="quality-options">
+                    <label class="quality-option">
+                        <input type="radio" name="quality" value="original" checked>
+                        <span>Original Quality</span>
+                    </label>
+                    <label class="quality-option">
+                        <input type="radio" name="quality" value="compressed">
+                        <span>Compressed (Smaller file)</span>
+                    </label>
+                </div>
+
+                <div class="download-progress" id="downloadProgress" style="display: none;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <span id="progressText">0%</span>
+                </div>
+
+                <button class="download-btn" id="startDownloadBtn">
+                    <i class="fas fa-download"></i> Start Download
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Back to Top Button -->
+    <button class="back-to-top" id="backToTop">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <script src="./script.js"></script>
+</body>
+</html>

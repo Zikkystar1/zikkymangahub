@@ -1,0 +1,41 @@
+{
+  "name": "toshiro-manga-hub",
+  "version": "1.0.0",
+  "description": "Premium Manhwa Reader with MangaDex API integration",
+  "main": "index.html",
+  "scripts": {
+    "start": "live-server --port=3000 --entry-file=index.html",
+    "dev": "live-server --port=3000 --watch=. --entry-file=index.html",
+    "build": "echo 'No build step required'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "manga",
+    "manhwa",
+    "reader",
+    "mangadex",
+    "webtoon",
+    "toshiro"
+  ],
+  "author": "TOSHIRO",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD"
+  },
+  "bugs": {
+    "url": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD/issues"
+  },
+  "homepage": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD#readme",
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "live-server": "^1.2.2"
+  },
+  "browserslist": [
+    ">0.2%",
+    "not dead",
+    "not op_mini all"
+  ]
+}
