@@ -1,13 +1,11 @@
 {
-  "name": "toshiro-manga-hub",
+  "name": "zikky-manga-hub",
   "version": "1.0.0",
-  "description": "Premium Manhwa Reader with MangaDex API integration",
-  "main": "index.html",
+  "description": "Premium Manhwa Reader with MangaDex API integration - Node.js web service",
+  "main": "server.js",
   "scripts": {
-    "start": "live-server --port=3000 --entry-file=index.html",
-    "dev": "live-server --port=3000 --watch=. --entry-file=index.html",
-    "build": "echo 'No build step required'",
-    "test": "echo 'No tests specified'"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
   "keywords": [
     "manga",
@@ -15,27 +13,20 @@
     "reader",
     "mangadex",
     "webtoon",
-    "toshiro"
+    "zikky"
   ],
-  "author": "TOSHIRO",
+  "author": "ZIKKY",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD"
-  },
-  "bugs": {
-    "url": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD/issues"
-  },
-  "homepage": "https://github.com/zikky0001-droid/DEV_ZIKKY-MD#readme",
   "dependencies": {
-    "jszip": "^3.10.1"
+    "express": "^4.18.2",
+    "compression": "^1.7.4",
+    "helmet": "^7.0.0",
+    "cors": "^2.8.5"
   },
   "devDependencies": {
-    "live-server": "^1.2.2"
+    "nodemon": "^3.0.1"
   },
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not op_mini all"
-  ]
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
