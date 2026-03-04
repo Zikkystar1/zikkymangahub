@@ -1,6 +1,6 @@
 // MangaDex API Configuration
-const BASE_URL = "https://api.mangadex.org";
-const CDN_URL = "https://uploads.mangadex.org";
+const BASE_URL = "/api/proxy/manga";
+const CDN_URL = "https://uploads.mangadex.org"; // Keep this as is
 
 // State Management
 let currentOffset = 0;
