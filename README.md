@@ -1,7 +1,6 @@
-```markdown
 <div align="center">
   
-# ⚡ *ZIKKY MANGA HUB* ⚡
+# ⚡ **ZIKKY MANGA HUB** ⚡
 
 ### *𝑷𝒓𝒆𝒎𝒊𝒖𝒎 𝑴𝒂𝒏𝒉𝒘𝒂 𝑹𝒆𝒂𝒅𝒆𝒓*
 
@@ -124,6 +123,7 @@ npm start
 ├── 📄 render.yaml         # Render config
 └── 📄 README.md           # You are here
 ```
+
 </div>
 
 ---
@@ -168,7 +168,6 @@ Step Action Result
 
 ```
 Copyright © 2026 DEV ZIKKY TECH
-
 ```
 
 </div>
@@ -196,4 +195,3 @@ https://img.shields.io/badge/Email-zikkystar0001@gmail.com-D14836?style=for-the-
 𝑯𝒂𝒑𝒑𝒚 𝑹𝒆𝒂𝒅𝒊𝒏𝒈! 📚
 
 </div>
-```
