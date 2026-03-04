@@ -2,13 +2,19 @@
 const BASE_URL = "/api/proxy/manga";
 const CDN_URL = "https://uploads.mangadex.org";
 
+// Add required User-Agent header (MUST have per API rules)
+const FETCH_HEADERS = {
+    'User-Agent': 'TOSHIRO-MANGA-HUB/1.0',
+    'Accept': 'application/json'
+};
+
 // State Management
 let currentOffset = 0;
 let isLoading = false;
 let hasMoreResults = true;
 let currentQuery = "";
 let currentGenre = "all";
-let currentSort = "followedCount"; // Default sort
+let currentSort = "followedCount";
 let selectedManga = null;
 let selectedChapter = null;
 let currentChapters = [];
@@ -50,7 +56,6 @@ function initializeDOMElements() {
     closeModalBtns = document.querySelectorAll('.close-modal');
     startDownloadBtn = document.getElementById('startDownloadBtn');
     
-    // Navigation buttons
     popularBtn = document.querySelector('a[href="#popular"]');
     bookmarksBtn = document.querySelector('a[href="#bookmarks"]');
     downloadsBtn = document.querySelector('a[href="#downloads"]');
@@ -91,7 +96,6 @@ function setupEventListeners() {
         });
     });
 
-    // Navigation buttons
     if (popularBtn) {
         popularBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -186,7 +190,6 @@ function showPopularManga() {
     currentQuery = "";
     resetSearch();
     
-    // Update active state in navigation
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
     if (popularBtn) popularBtn.classList.add('active');
     
@@ -203,10 +206,11 @@ function showBookmarks() {
             return;
         }
         
-        // Fetch and display bookmarked manga
         bookmarks.forEach(async (bookmark) => {
             try {
-                const response = await fetch(`${BASE_URL}/manga/${bookmark.id}?includes[]=cover_art`);
+                const response = await fetch(`${BASE_URL}/manga/${bookmark.id}?includes[]=cover_art`, {
+                    headers: FETCH_HEADERS
+                });
                 const data = await response.json();
                 displaySingleManga(data.data);
             } catch (error) {
@@ -215,12 +219,10 @@ function showBookmarks() {
         });
     }
     
-    // Hide other sections
     if (mainContainer) mainContainer.style.display = 'block';
     if (detailsPage) detailsPage.style.display = 'none';
     if (readerPage) readerPage.style.display = 'none';
     
-    // Update active state
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
     if (bookmarksBtn) bookmarksBtn.classList.add('active');
 }
@@ -235,7 +237,6 @@ function showDownloads() {
             return;
         }
         
-        // Group downloads by manga
         const downloadsByManga = {};
         downloadedChapters.forEach(download => {
             if (!downloadsByManga[download.mangaTitle]) {
@@ -244,7 +245,6 @@ function showDownloads() {
             downloadsByManga[download.mangaTitle].push(download);
         });
         
-        // Display downloads
         Object.keys(downloadsByManga).forEach(mangaTitle => {
             const mangaDiv = document.createElement('div');
             mangaDiv.className = 'downloads-section';
@@ -252,7 +252,7 @@ function showDownloads() {
                 <h3 class="downloads-manga-title">${mangaTitle}</h3>
                 <div class="downloads-chapters">
                     ${downloadsByManga[mangaTitle].map(d => `
-                        <div class="download-item" onclick="alert('Downloaded: Chapter ${d.chapterNumber}')">
+                        <div class="download-item" onclick="alert('Downloaded: Chapter ${d.chapterNumber} on ${new Date(d.downloadedAt).toLocaleDateString()}')">
                             <span>Chapter ${d.chapterNumber}</span>
                             <small>${new Date(d.downloadedAt).toLocaleDateString()}</small>
                         </div>
@@ -263,119 +263,13 @@ function showDownloads() {
         });
     }
     
-    // Hide other sections
     if (mainContainer) mainContainer.style.display = 'block';
     if (detailsPage) detailsPage.style.display = 'none';
     if (readerPage) readerPage.style.display = 'none';
     
-    // Update active state
     document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
     if (downloadsBtn) downloadsBtn.classList.add('active');
 }
-
-// ============== DOWNLOAD FUNCTIONS (FIXED) ==============
-
-async function startDownload() {
-    const quality = document.querySelector('input[name="quality"]:checked')?.value || 'original';
-    
-    if (downloadOptionsModal) downloadOptionsModal.style.display = 'none';
-    
-    try {
-        showToast('Preparing download...', 'info');
-        
-        const response = await fetch(`${BASE_URL}/at-home/server/${selectedChapter.id}`);
-        if (!response.ok) throw new Error('Failed to fetch chapter');
-        
-        const data = await response.json();
-        
-        const baseUrl = data.baseUrl;
-        const chapterHash = data.chapter.hash;
-        const pageFilenames = data.chapter.data;
-        
-        // Create ZIP file with actual images
-        await createChapterZip(baseUrl, chapterHash, pageFilenames);
-        
-        showToast('Download complete!', 'success');
-    } catch (error) {
-        console.error('Download error:', error);
-        showToast('Download failed. Please try again.', 'error');
-    }
-}
-
-async function createChapterZip(baseUrl, chapterHash, pageFilenames) {
-    if (typeof JSZip === 'undefined') {
-        showToast('JSZip library not loaded', 'error');
-        return;
-    }
-    
-    const zip = new JSZip();
-    const safeTitle = (selectedChapter.mangaTitle || 'manga').replace(/[^a-z0-9]/gi, '_');
-    const folderName = `${safeTitle}_Chapter_${selectedChapter.number}`;
-    const folder = zip.folder(folderName);
-    
-    showToast(`Downloading ${pageFilenames.length} pages...`, 'info');
-    
-    // Download each image and add to ZIP
-    for (let i = 0; i < pageFilenames.length; i++) {
-        const filename = pageFilenames[i];
-        const pageUrl = `${baseUrl}/data/${chapterHash}/${filename}`;
-        
-        try {
-            // Fetch the image
-            const response = await fetch(pageUrl);
-            if (!response.ok) throw new Error(`Failed to download page ${i + 1}`);
-            
-            // Get image as blob
-            const blob = await response.blob();
-            
-            // Add to ZIP with proper filename (keep original extension)
-            const fileExt = filename.split('.').pop() || 'jpg';
-            folder.file(`page_${String(i + 1).padStart(3, '0')}.${fileExt}`, blob);
-            
-            // Update progress
-            const progress = ((i + 1) / pageFilenames.length) * 100;
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            if (progressFill) progressFill.style.width = `${progress}%`;
-            if (progressText) progressText.textContent = `${Math.round(progress)}%`;
-            
-        } catch (error) {
-            console.error(`Error downloading page ${i + 1}:`, error);
-            showToast(`Error on page ${i + 1}, continuing...`, 'warning');
-        }
-    }
-    
-    // Generate and download ZIP
-    const content = await zip.generateAsync({ type: 'blob' });
-    const url = window.URL.createObjectURL(content);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${folderName}.zip`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    window.URL.revokeObjectURL(url);
-    
-    // Save to downloaded list
-    saveToDownloaded(pageFilenames.length);
-}
-
-function saveToDownloaded(pageCount) {
-    const downloadItem = {
-        id: `${selectedChapter.mangaTitle}_${selectedChapter.number}_${Date.now()}`,
-        mangaId: selectedManga.id,
-        mangaTitle: selectedChapter.mangaTitle,
-        chapterNumber: selectedChapter.number,
-        chapterId: selectedChapter.id,
-        pageCount: pageCount,
-        downloadedAt: new Date().toISOString()
-    };
-    
-    downloadedChapters.push(downloadItem);
-    localStorage.setItem('downloadedChapters', JSON.stringify(downloadedChapters));
-}
-
-// ============== REST OF YOUR EXISTING FUNCTIONS (KEEP THEM ALL) ==============
 
 function resetSearch() {
     currentOffset = 0;
@@ -456,7 +350,7 @@ function formatRating(manga) {
     }
 }
 
-// Load Manga from API
+// ============== FIXED: Load Manga with proper pagination ==============
 async function loadManga() {
     if (isLoading || !hasMoreResults) return;
     
@@ -464,7 +358,15 @@ async function loadManga() {
     if (loadingIndicator) loadingIndicator.style.display = 'block';
 
     try {
-        let url = `${BASE_URL}/manga?limit=20&offset=${currentOffset}&includes[]=cover_art&includes[]=artist&includes[]=author&order[${currentSort}]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
+        // Respect API limits: max 100 per request, offset+limit ≤ 10000
+        const limit = 20;
+        if (currentOffset + limit > 10000) {
+            hasMoreResults = false;
+            if (endResults) endResults.style.display = 'block';
+            return;
+        }
+
+        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&includes[]=artist&includes[]=author&order[${currentSort}]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
         
         if (currentQuery) {
             url += `&title=${encodeURIComponent(currentQuery)}`;
@@ -477,7 +379,7 @@ async function loadManga() {
             }
         }
 
-        const response = await fetch(url);
+        const response = await fetch(url, { headers: FETCH_HEADERS });
         const data = await response.json();
         
         if (!data.data || data.data.length === 0) {
@@ -487,12 +389,17 @@ async function loadManga() {
             return;
         }
 
-        await displayManga(data.data);
-        currentOffset += 20;
-        
-        if (data.data.length < 20) {
+        // If we got fewer items than requested, there are no more results
+        if (data.data.length < limit) {
             hasMoreResults = false;
-            if (endResults) endResults.style.display = 'block';
+        }
+
+        await displayManga(data.data);
+        currentOffset += limit;
+        
+        // Show end message if we've reached the end
+        if (!hasMoreResults && endResults) {
+            endResults.style.display = 'block';
         }
     } catch (error) {
         console.error('Error loading manga:', error);
@@ -524,11 +431,14 @@ async function displayManga(mangaList) {
     let statsData = {};
     
     try {
-        const statsResponse = await fetch(`${BASE_URL}/statistics/manga?manga=${mangaIds}`);
+        const statsResponse = await fetch(`${BASE_URL}/statistics/manga?manga=${mangaIds}`, {
+            headers: FETCH_HEADERS
+        });
         const stats = await statsResponse.json();
         statsData = stats.statistics || {};
     } catch (error) {
         console.error('Error fetching stats:', error);
+        // Continue without stats rather than failing
     }
     
     mangaList.forEach(manga => {
@@ -578,13 +488,19 @@ async function openMangaDetails(mangaId, title) {
     try {
         showToast('Loading manga details...', 'info');
         
-        const response = await fetch(`${BASE_URL}/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=tag`);
+        const response = await fetch(`${BASE_URL}/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=tag`, {
+            headers: FETCH_HEADERS
+        });
         if (!response.ok) throw new Error('Failed to fetch manga details');
         const data = await response.json();
         
-        const statsResponse = await fetch(`${BASE_URL}/statistics/manga/${mangaId}`);
-        if (!statsResponse.ok) throw new Error('Failed to fetch statistics');
-        const statsData = await statsResponse.json();
+        const statsResponse = await fetch(`${BASE_URL}/statistics/manga/${mangaId}`, {
+            headers: FETCH_HEADERS
+        });
+        let statsData = {};
+        if (statsResponse.ok) {
+            statsData = await statsResponse.json();
+        }
         
         currentChapters = await fetchAllChapters(mangaId);
         
@@ -609,7 +525,8 @@ async function fetchAllChapters(mangaId) {
     try {
         while (hasMore) {
             const response = await fetch(
-                `${BASE_URL}/chapter?manga=${mangaId}&translatedLanguage[]=en&limit=${limit}&offset=${offset}&order[chapter]=asc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica`
+                `${BASE_URL}/chapter?manga=${mangaId}&translatedLanguage[]=en&limit=${limit}&offset=${offset}&order[chapter]=asc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica`,
+                { headers: FETCH_HEADERS }
             );
             
             if (!response.ok) break;
@@ -869,7 +786,9 @@ async function openChapterReader(index) {
     try {
         showToast('Loading chapter...', 'info');
         
-        const response = await fetch(`${BASE_URL}/at-home/server/${selectedChapter.id}`);
+        const response = await fetch(`${BASE_URL}/at-home/server/${selectedChapter.id}`, {
+            headers: FETCH_HEADERS
+        });
         if (!response.ok) throw new Error('Failed to load chapter');
         
         const data = await response.json();
@@ -939,6 +858,140 @@ function showDownloadOptions(index) {
     if (downloadOptionsModal) downloadOptionsModal.style.display = 'block';
 }
 
+// ============== FIXED: Download with proper image handling ==============
+async function startDownload() {
+    const quality = document.querySelector('input[name="quality"]:checked')?.value || 'original';
+    
+    if (downloadOptionsModal) downloadOptionsModal.style.display = 'none';
+    
+    try {
+        showToast('Preparing download...', 'info');
+        
+        // Step 1: Get chapter metadata
+        const response = await fetch(`${BASE_URL}/at-home/server/${selectedChapter.id}`, {
+            headers: FETCH_HEADERS
+        });
+        if (!response.ok) throw new Error('Failed to fetch chapter');
+        
+        const data = await response.json();
+        
+        // Step 2: Determine quality and get filenames
+        const qualityType = quality === 'original' ? 'data' : 'dataSaver';
+        const pageFilenames = data.chapter[qualityType];
+        const baseUrl = data.baseUrl;
+        const chapterHash = data.chapter.hash;
+        
+        if (!pageFilenames || pageFilenames.length === 0) {
+            throw new Error('No pages found for this chapter');
+        }
+        
+        showToast(`Downloading ${pageFilenames.length} pages...`, 'info');
+        
+        // Step 3: Download each image and create ZIP
+        await createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType);
+        
+        showToast('Download complete!', 'success');
+    } catch (error) {
+        console.error('Download error:', error);
+        showToast('Download failed: ' + error.message, 'error');
+    }
+}
+
+async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType) {
+    if (typeof JSZip === 'undefined') {
+        showToast('JSZip library not loaded', 'error');
+        return;
+    }
+    
+    const zip = new JSZip();
+    const safeTitle = (selectedChapter.mangaTitle || 'manga').replace(/[^a-z0-9]/gi, '_');
+    const folderName = `${safeTitle}_Chapter_${selectedChapter.number}`;
+    const folder = zip.folder(folderName);
+    
+    // Show progress bar
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = '0%';
+    
+    // Download each image and add to ZIP
+    for (let i = 0; i < pageFilenames.length; i++) {
+        const filename = pageFilenames[i];
+        // Construct proper URL according to API docs
+        const pageUrl = `${baseUrl}/${qualityType}/${chapterHash}/${filename}`;
+        
+        try {
+            // Fetch the image WITHOUT authentication headers
+            const response = await fetch(pageUrl);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            // Get the image as blob
+            const blob = await response.blob();
+            
+            // Verify we got actual image data
+            if (blob.size === 0) {
+                throw new Error('Empty image data');
+            }
+            
+            // Get file extension from original filename
+            const fileExt = filename.split('.').pop() || 'jpg';
+            const pageName = `page_${String(i + 1).padStart(3, '0')}.${fileExt}`;
+            
+            // Add to ZIP
+            folder.file(pageName, blob);
+            
+            // Update progress
+            const progress = ((i + 1) / pageFilenames.length) * 100;
+            if (progressFill) progressFill.style.width = `${progress}%`;
+            if (progressText) progressText.textContent = `${Math.round(progress)}%`;
+            
+        } catch (error) {
+            console.error(`Error downloading page ${i + 1}:`, error);
+            showToast(`Error on page ${i + 1}, continuing...`, 'warning');
+            // Add a placeholder to indicate missing page
+            const placeholder = new Blob(['Page failed to download'], { type: 'text/plain' });
+            folder.file(`page_${String(i + 1).padStart(3, '0')}_ERROR.txt`, placeholder);
+        }
+    }
+    
+    // Generate and download ZIP
+    const content = await zip.generateAsync({ 
+        type: 'blob',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 }
+    });
+    
+    const url = window.URL.createObjectURL(content);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${folderName}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    // Save to downloaded list
+    saveToDownloaded(pageFilenames.length);
+}
+
+function saveToDownloaded(pageCount) {
+    const downloadItem = {
+        id: `${selectedChapter.mangaTitle}_${selectedChapter.number}_${Date.now()}`,
+        mangaId: selectedManga.id,
+        mangaTitle: selectedChapter.mangaTitle,
+        chapterNumber: selectedChapter.number,
+        chapterId: selectedChapter.id,
+        pageCount: pageCount,
+        downloadedAt: new Date().toISOString()
+    };
+    
+    downloadedChapters.push(downloadItem);
+    localStorage.setItem('downloadedChapters', JSON.stringify(downloadedChapters));
+}
+
 function navigateChapter(direction) {
     if (!selectedChapter || !currentChapters.length) return;
     
@@ -965,9 +1018,16 @@ function handleScroll() {
         }
     }
     
-    if (mainContainer && mainContainer.style.display !== 'none') {
-        if (window.innerHeight + window.scrollY >= document.body.offsetHeight - 500) {
-            loadManga();
+    // Infinite scroll - only trigger if we're not already loading and have more results
+    if (mainContainer && mainContainer.style.display !== 'none' && !isLoading && hasMoreResults) {
+        const scrollPosition = window.innerHeight + window.scrollY;
+        const threshold = document.body.offsetHeight - 500;
+        
+        if (scrollPosition >= threshold) {
+            // Add small delay to prevent multiple rapid requests
+            setTimeout(() => {
+                loadManga();
+            }, 300);
         }
     }
 }
