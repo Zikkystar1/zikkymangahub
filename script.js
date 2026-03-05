@@ -4,7 +4,7 @@ const CDN_URL = "https://uploads.mangadex.org";
 
 // Add required User-Agent header (MUST have per API rules)
 const FETCH_HEADERS = {
-    'User-Agent': 'TOSHIRO-MANGA-HUB/1.0',
+    'User-Agent': 'ZIKKY-MANGA-HUB/1.0',
     'Accept': 'application/json'
 };
 
@@ -23,7 +23,7 @@ let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
 
 // DOM Elements
 let mainContainer, detailsPage, readerPage, resultsContainer, loadingIndicator, endResults;
-let searchInput, searchBtn, menuToggle, themeToggle, backToTop, toastContainer;
+let searchInput, searchBtn, menuToggle, themeToggle, backToTop, refreshBtn, toastContainer;
 let backFromDetails, backFromReader, prevChapterBtn, nextChapterBtn, downloadCurrentBtn;
 let downloadOptionsModal, closeModalBtns, startDownloadBtn;
 let popularBtn, bookmarksBtn, downloadsBtn;
@@ -60,7 +60,105 @@ function initializeDOMElements() {
     bookmarksBtn = document.querySelector('a[href="#bookmarks"]');
     downloadsBtn = document.querySelector('a[href="#downloads"]');
     
+    // Create refresh button
+    createRefreshButton();
+    
     if (mainContainer) mainContainer.style.display = 'block';
+}
+
+// Create Refresh Button (Bottom Left)
+function createRefreshButton() {
+    // Check if button already exists
+    if (document.getElementById('refreshBtn')) return;
+    
+    const refreshBtn = document.createElement('button');
+    refreshBtn.id = 'refreshBtn';
+    refreshBtn.className = 'refresh-button';
+    refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+    refreshBtn.title = 'Refresh Random Manga';
+    refreshBtn.addEventListener('click', refreshRandomManga);
+    document.body.appendChild(refreshBtn);
+    
+    // Add styles for refresh button
+    const style = document.createElement('style');
+    style.textContent = `
+        .refresh-button {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition-smooth);
+            z-index: 1000;
+            box-shadow: var(--neon-shadow);
+            animation: pulse 2s infinite;
+        }
+        
+        .refresh-button:hover {
+            transform: rotate(180deg) scale(1.1);
+            box-shadow: 0 5px 25px var(--primary-glow);
+        }
+        
+        .refresh-button:active {
+            transform: rotate(180deg) scale(0.95);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @media (max-width: 768px) {
+            .refresh-button {
+                bottom: 20px;
+                left: 20px;
+                width: 45px;
+                height: 45px;
+                font-size: 1rem;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Refresh Random Manga
+function refreshRandomManga() {
+    // Reset everything
+    currentOffset = 0;
+    hasMoreResults = true;
+    currentQuery = "";
+    currentGenre = "all";
+    
+    // Clear random seed to get new randomization
+    window.randomSeed = Math.floor(Math.random() * 1000000);
+    
+    // Clear results
+    if (resultsContainer) resultsContainer.innerHTML = '';
+    if (endResults) endResults.style.display = 'none';
+    
+    // Show toast
+    showToast('Refreshing with new random manga...', 'info');
+    
+    // Load new manga
+    loadManga();
+    
+    // Animate button
+    const btn = document.getElementById('refreshBtn');
+    if (btn) {
+        btn.style.transform = 'rotate(360deg)';
+        setTimeout(() => {
+            btn.style.transform = '';
+        }, 500);
+    }
 }
 
 function initializeApp() {
@@ -274,6 +372,8 @@ function showDownloads() {
 function resetSearch() {
     currentOffset = 0;
     hasMoreResults = true;
+    // Reset random seed for new randomization
+    window.randomSeed = Math.floor(Math.random() * 1000000);
     if (resultsContainer) resultsContainer.innerHTML = '';
     if (endResults) endResults.style.display = 'none';
     loadManga();
@@ -316,40 +416,6 @@ function toggleMenu() {
     }
 }
 
-// Format rating from MangaDex data
-function formatRating(manga) {
-    try {
-        const rating = manga.attributes?.rating;
-        if (!rating) return null;
-        
-        const bayesianRating = rating.bayesian;
-        const meanRating = rating.mean;
-        
-        let voteCount = 0;
-        if (rating.distribution) {
-            voteCount = Object.values(rating.distribution).reduce((a, b) => a + b, 0);
-        }
-        
-        if (bayesianRating && bayesianRating > 0) {
-            return {
-                score: bayesianRating.toFixed(1),
-                votes: voteCount,
-                display: bayesianRating.toFixed(1)
-            };
-        } else if (meanRating && meanRating > 0) {
-            return {
-                score: meanRating.toFixed(1),
-                votes: voteCount,
-                display: meanRating.toFixed(1)
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error('Error formatting rating:', error);
-        return null;
-    }
-}
-
 // Get Genre ID
 function getGenreId(genre) {
     const genreMap = {
@@ -363,7 +429,7 @@ function getGenreId(genre) {
     return genreMap[genre];
 }
 
-// ============== FIXED: Load Manga with RANDOMIZED results ==============
+// ============== FIXED: Load Manga with RANDOMIZED results and INFINITE SCROLL ==============
 async function loadManga() {
     if (isLoading || !hasMoreResults) return;
     
@@ -371,7 +437,6 @@ async function loadManga() {
     if (loadingIndicator) loadingIndicator.style.display = 'block';
 
     try {
-        // Use smaller limit for faster loading
         const limit = 20;
         
         // Check API limit (offset + limit ≤ 10000)
@@ -382,27 +447,12 @@ async function loadManga() {
         }
 
         // Generate random seed for consistent randomization per session
-        // This ensures the same random order throughout the session
         if (!window.randomSeed) {
             window.randomSeed = Math.floor(Math.random() * 1000000);
         }
         
-        // Build URL with random sorting for variety
-        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&order[createdAt]=desc&contentRating[]=safe&contentRating[]=suggestive&availableTranslatedLanguage[]=en`;
-        
-        // Add randomization parameters
-        // Option 1: Use random order (most effective)
-        url += `&order[followedCount]=desc&order[createdAt]=desc&order[updatedAt]=desc`;
-        
-        // Option 2: Add random seed if API supports it (MangaDex doesn't directly, but we can use multiple sort criteria)
-        
-        // If no search query, add more randomization by mixing sort orders
-        if (!currentQuery && currentGenre === 'all') {
-            // Randomly choose a sort order each time to get variety
-            const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
-            const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
-            url += `&order[${randomSort}]=desc`;
-        }
+        // Build URL with randomization
+        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
         
         // Add search query if present
         if (currentQuery) {
@@ -416,10 +466,21 @@ async function loadManga() {
                 url += `&includedTags[]=${genreId}`;
             }
         }
+        
+        // Randomize sort order for variety when not searching/filtering
+        if (!currentQuery && currentGenre === 'all') {
+            const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
+            const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
+            const randomDirection = Math.random() > 0.5 ? 'desc' : 'asc';
+            url += `&order[${randomSort}]=${randomDirection}`;
+        } else {
+            // Default sort for searches
+            url += `&order[followedCount]=desc`;
+        }
 
         // Use AbortController for timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         
         const response = await fetch(url, { 
             headers: FETCH_HEADERS,
@@ -438,18 +499,18 @@ async function loadManga() {
         }
 
         // For even more variety, shuffle the results locally
-        // This creates a pseudo-random order while maintaining pagination
-        const shuffledData = [...data.data];
+        let mangaToDisplay = [...data.data];
         if (!currentQuery && currentGenre === 'all') {
-            // Simple Fisher-Yates shuffle based on seed
-            for (let i = shuffledData.length - 1; i > 0; i--) {
-                const j = (Math.floor(Math.random() * (i + 1)) + window.randomSeed) % (i + 1);
-                [shuffledData[i], shuffledData[j]] = [shuffledData[j], shuffledData[i]];
+            // Fisher-Yates shuffle based on seed
+            for (let i = mangaToDisplay.length - 1; i > 0; i--) {
+                const pseudoRandom = (Math.sin(i * window.randomSeed) * 10000) % 1;
+                const j = Math.floor(Math.abs(pseudoRandom) * (i + 1));
+                [mangaToDisplay[i], mangaToDisplay[j]] = [mangaToDisplay[j], mangaToDisplay[i]];
             }
         }
 
         // Display manga immediately
-        displayMangaFast(shuffledData);
+        displayMangaFast(mangaToDisplay);
         
         // Update offset for next page
         currentOffset += limit;
@@ -463,7 +524,6 @@ async function loadManga() {
         if (!hasMoreResults && endResults) {
             endResults.style.display = 'block';
         } else {
-            // Hide end results if there are more
             if (endResults) endResults.style.display = 'none';
         }
         
@@ -527,10 +587,12 @@ async function fetchStatsInBackground(mangaList) {
         const statsData = stats.statistics || {};
         
         // Update cards with real stats
+        const cards = resultsContainer.children;
+        const startIndex = cards.length - mangaList.length;
+        
         mangaList.forEach((manga, index) => {
             const mangaStats = statsData[manga.id] || {};
             const rating = mangaStats.rating || {};
-            const follows = mangaStats.follows || 0;
             
             let ratingDisplay = 'N/A';
             if (rating.bayesian) {
@@ -539,11 +601,9 @@ async function fetchStatsInBackground(mangaList) {
                 ratingDisplay = rating.average.toFixed(1);
             }
             
-            // Find and update the card (approximate - by position)
-            const cards = resultsContainer.children;
-            const startIndex = currentOffset - mangaList.length + index;
-            if (cards[startIndex]) {
-                const statsSpan = cards[startIndex].querySelector('.manga-stats span:first-child');
+            const cardIndex = startIndex + index;
+            if (cards[cardIndex]) {
+                const statsSpan = cards[cardIndex].querySelector('.manga-stats span:first-child');
                 if (statsSpan) {
                     statsSpan.innerHTML = `<i class="fas fa-star" style="color: #ffd700;"></i> ${ratingDisplay}`;
                 }
@@ -551,7 +611,6 @@ async function fetchStatsInBackground(mangaList) {
         });
     } catch (error) {
         console.error('Error fetching stats in background:', error);
-        // Silently fail - stats are optional
     }
 }
 
@@ -973,7 +1032,7 @@ function showDownloadOptions(index) {
     if (downloadOptionsModal) downloadOptionsModal.style.display = 'block';
 }
 
-// ============== FIXED: Download with correct URL construction ==============
+// Download function
 async function startDownload() {
     const quality = document.querySelector('input[name="quality"]:checked')?.value || 'original';
     
@@ -982,7 +1041,6 @@ async function startDownload() {
     try {
         showToast('Preparing download...', 'info');
         
-        // Step 1: Get chapter metadata
         const response = await fetch(`${BASE_URL}/at-home/server/${selectedChapter.id}`, {
             headers: FETCH_HEADERS
         });
@@ -990,8 +1048,6 @@ async function startDownload() {
         
         const data = await response.json();
         
-        // Step 2: Determine quality and get filenames
-        // IMPORTANT: The API uses 'data' for original and 'dataSaver' for compressed
         const qualityType = quality === 'original' ? 'data' : 'dataSaver';
         const pageFilenames = data.chapter[qualityType];
         const baseUrl = data.baseUrl;
@@ -1003,7 +1059,6 @@ async function startDownload() {
         
         showToast(`Downloading ${pageFilenames.length} pages...`, 'info');
         
-        // Step 3: Download each image and create ZIP
         await createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType);
         
         showToast('Download complete!', 'success');
@@ -1024,65 +1079,41 @@ async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType
     const folderName = `${safeTitle}_Chapter_${selectedChapter.number}`;
     const folder = zip.folder(folderName);
     
-    // Show progress bar
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
     if (progressFill) progressFill.style.width = '0%';
     if (progressText) progressText.textContent = '0%';
     
-    // Download each image and add to ZIP
     for (let i = 0; i < pageFilenames.length; i++) {
         const filename = pageFilenames[i];
-        
-        // CRITICAL FIX: Construct URL according to MangaDex API docs
-        // Format: baseUrl/quality/chapterHash/filename
-        // Example: https://uploads.mangadex.org/data/1234567890/1234567890-1.jpg
         const pageUrl = `${baseUrl}/${qualityType}/${chapterHash}/${filename}`;
         
-        console.log('Downloading:', pageUrl); // Debug log
-        
         try {
-            // Fetch the image WITHOUT authentication headers (as required by API)
             const response = await fetch(pageUrl);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            // Get the image as blob
             const blob = await response.blob();
             
-            // Verify we got actual image data
             if (blob.size === 0) {
                 throw new Error('Empty image data');
             }
             
-            // Log success
-            console.log(`Page ${i+1} downloaded: ${blob.size} bytes`);
-            
-            // Get file extension from original filename
             const fileExt = filename.split('.').pop() || 'jpg';
             const pageName = `page_${String(i + 1).padStart(3, '0')}.${fileExt}`;
-            
-            // Add to ZIP
             folder.file(pageName, blob);
             
-            // Update progress
             const progress = ((i + 1) / pageFilenames.length) * 100;
             if (progressFill) progressFill.style.width = `${progress}%`;
             if (progressText) progressText.textContent = `${Math.round(progress)}%`;
             
         } catch (error) {
             console.error(`Error downloading page ${i + 1}:`, error);
-            showToast(`Error on page ${i + 1}, continuing...`, 'warning');
-            
-            // Add error info to ZIP instead of placeholder
-            const errorBlob = new Blob([`Failed to download: ${error.message}`], { type: 'text/plain' });
-            folder.file(`page_${String(i + 1).padStart(3, '0')}_ERROR.txt`, errorBlob);
         }
     }
     
-    // Generate and download ZIP
     const content = await zip.generateAsync({ 
         type: 'blob',
         compression: 'DEFLATE',
@@ -1098,7 +1129,6 @@ async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     
-    // Save to downloaded list
     saveToDownloaded(pageFilenames.length);
 }
 
