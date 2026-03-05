@@ -350,66 +350,6 @@ function formatRating(manga) {
     }
 }
 
-// ============== FIXED: Load Manga with proper pagination ==============
-async function loadManga() {
-    if (isLoading || !hasMoreResults) return;
-    
-    isLoading = true;
-    if (loadingIndicator) loadingIndicator.style.display = 'block';
-
-    try {
-        // Respect API limits: max 100 per request, offset+limit ≤ 10000
-        const limit = 20;
-        if (currentOffset + limit > 10000) {
-            hasMoreResults = false;
-            if (endResults) endResults.style.display = 'block';
-            return;
-        }
-
-        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&includes[]=artist&includes[]=author&order[${currentSort}]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
-        
-        if (currentQuery) {
-            url += `&title=${encodeURIComponent(currentQuery)}`;
-        }
-        
-        if (currentGenre && currentGenre !== 'all') {
-            const genreId = getGenreId(currentGenre);
-            if (genreId) {
-                url += `&includedTags[]=${genreId}`;
-            }
-        }
-
-        const response = await fetch(url, { headers: FETCH_HEADERS });
-        const data = await response.json();
-        
-        if (!data.data || data.data.length === 0) {
-            hasMoreResults = false;
-            if (endResults) endResults.style.display = 'block';
-            showToast('No more manga available', 'info');
-            return;
-        }
-
-        // If we got fewer items than requested, there are no more results
-        if (data.data.length < limit) {
-            hasMoreResults = false;
-        }
-
-        await displayManga(data.data);
-        currentOffset += limit;
-        
-        // Show end message if we've reached the end
-        if (!hasMoreResults && endResults) {
-            endResults.style.display = 'block';
-        }
-    } catch (error) {
-        console.error('Error loading manga:', error);
-        showToast('Failed to load manga. Please try again.', 'error');
-    } finally {
-        isLoading = false;
-        if (loadingIndicator) loadingIndicator.style.display = 'none';
-    }
-}
-
 // Get Genre ID
 function getGenreId(genre) {
     const genreMap = {
@@ -423,38 +363,315 @@ function getGenreId(genre) {
     return genreMap[genre];
 }
 
-// Display Manga Grid
-async function displayManga(mangaList) {
+// ============== AGGRESSIVE RANDOMIZATION: Load Manga with maximum variety ==============
+async function loadManga() {
+    if (isLoading || !hasMoreResults) return;
+    
+    isLoading = true;
+    if (loadingIndicator) loadingIndicator.style.display = 'block';
+
+    try {
+        const limit = 20;
+        
+        // Check API limit
+        if (currentOffset + limit > 10000) {
+            hasMoreResults = false;
+            if (endResults) endResults.style.display = 'block';
+            return;
+        }
+
+        // Generate random seed for consistent randomization per session
+        if (!window.randomSeed) {
+            window.randomSeed = Math.floor(Math.random() * 1000000);
+        }
+
+        // For maximum variety on first load and when no search/filter is active
+        if (!currentQuery && currentGenre === 'all' && currentOffset === 0) {
+            try {
+                showToast('Loading random manga collection...', 'info');
+                
+                // Fetch a larger batch to shuffle from (API max is 100)
+                const largeUrl = `${BASE_URL}/manga?limit=50&offset=0&includes[]=cover_art&order[createdAt]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
+                
+                const largeResponse = await fetch(largeUrl, { headers: FETCH_HEADERS });
+                
+                if (!largeResponse.ok) throw new Error('Failed to fetch large batch');
+                
+                const largeData = await largeResponse.json();
+                
+                if (largeData.data && largeData.data.length > 0) {
+                    // Create a pool of manga to shuffle from
+                    let mangaPool = [...largeData.data];
+                    
+                    // Aggressive shuffle using Fisher-Yates with seed
+                    for (let i = mangaPool.length - 1; i > 0; i--) {
+                        // Use seed to create deterministic but random-looking shuffle
+                        const pseudoRandom = (Math.sin(i * window.randomSeed) * 10000) % 1;
+                        const j = Math.floor(pseudoRandom * (i + 1));
+                        [mangaPool[i], mangaPool[j]] = [mangaPool[j], mangaPool[i]];
+                    }
+                    
+                    // Also shuffle based on random sort criteria for extra variety
+                    const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
+                    const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
+                    
+                    // Apply additional sorting based on random criteria
+                    mangaPool.sort((a, b) => {
+                        const getValue = (manga, sortType) => {
+                            switch(sortType) {
+                                case 'followedCount':
+                                    return manga.attributes.followedCount || 0;
+                                case 'createdAt':
+                                    return new Date(manga.attributes.createdAt).getTime();
+                                case 'updatedAt':
+                                    return new Date(manga.attributes.updatedAt).getTime();
+                                case 'rating':
+                                    return manga.attributes.rating?.bayesian || manga.attributes.rating?.average || 0;
+                                default:
+                                    return 0;
+                            }
+                        };
+                        
+                        const valA = getValue(a, randomSort);
+                        const valB = getValue(b, randomSort);
+                        
+                        // Randomize direction sometimes
+                        if (Math.random() > 0.5) {
+                            return valB - valA;
+                        } else {
+                            return valA - valB;
+                        }
+                    });
+                    
+                    // Take first 20 for immediate display
+                    const displayManga = mangaPool.slice(0, 20);
+                    
+                    // Store remaining in a queue for next pages
+                    window.mangaQueue = mangaPool.slice(20);
+                    
+                    // Display the randomized manga
+                    displayMangaFast(displayManga);
+                    
+                    // Update offset to reflect we used the large batch
+                    currentOffset = 50;
+                    
+                    showToast('Found ' + largeData.total + ' manga!', 'success');
+                    
+                    isLoading = false;
+                    if (loadingIndicator) loadingIndicator.style.display = 'none';
+                    
+                    // Prefetch next batch in background
+                    setTimeout(() => {
+                        if (window.mangaQueue && window.mangaQueue.length > 0) {
+                            console.log('Next batch ready in queue:', window.mangaQueue.length);
+                        }
+                    }, 1000);
+                    
+                    return;
+                }
+            } catch (error) {
+                console.error('Error fetching large batch, falling back to normal load:', error);
+                // Fall through to normal loading
+            }
+        }
+        
+        // For subsequent pages or when search/filter is active
+        // Check if we have queued manga from the large batch
+        if (!currentQuery && currentGenre === 'all' && window.mangaQueue && window.mangaQueue.length > 0) {
+            // Take next 20 from queue
+            const nextBatch = window.mangaQueue.slice(0, limit);
+            window.mangaQueue = window.mangaQueue.slice(limit);
+            
+            displayMangaFast(nextBatch);
+            currentOffset += limit;
+            
+            // If queue is empty, we'll need to fetch more next time
+            if (window.mangaQueue.length === 0) {
+                window.mangaQueue = null;
+                // We'll fetch more on next scroll
+            }
+            
+            isLoading = false;
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+            return;
+        }
+        
+        // Normal API pagination for search/filter or when queue is empty
+        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
+        
+        // Add search query if present
+        if (currentQuery) {
+            url += `&title=${encodeURIComponent(currentQuery)}`;
+        }
+        
+        // Add genre filter if present
+        if (currentGenre && currentGenre !== 'all') {
+            const genreId = getGenreId(currentGenre);
+            if (genreId) {
+                url += `&includedTags[]=${genreId}`;
+            }
+        }
+        
+        // Randomize sort order for variety when not searching/filtering
+        if (!currentQuery && currentGenre === 'all') {
+            const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
+            const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
+            const randomDirection = Math.random() > 0.5 ? 'desc' : 'asc';
+            url += `&order[${randomSort}]=${randomDirection}`;
+        } else {
+            // Default sort for searches
+            url += `&order[followedCount]=desc`;
+        }
+
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        const response = await fetch(url, { 
+            headers: FETCH_HEADERS,
+            signal: controller.signal 
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const data = await response.json();
+        
+        if (!data.data || data.data.length === 0) {
+            hasMoreResults = false;
+            if (endResults) endResults.style.display = 'block';
+            showToast('No more manga available', 'info');
+            return;
+        }
+
+        // Apply local shuffling for extra variety
+        let mangaToDisplay = [...data.data];
+        
+        if (!currentQuery && currentGenre === 'all') {
+            // Shuffle using seed for consistent but random order
+            for (let i = mangaToDisplay.length - 1; i > 0; i--) {
+                const pseudoRandom = (Math.sin(i * window.randomSeed) * 10000) % 1;
+                const j = Math.floor(pseudoRandom * (i + 1));
+                [mangaToDisplay[i], mangaToDisplay[j]] = [mangaToDisplay[j], mangaToDisplay[i]];
+            }
+        }
+
+        // Display manga immediately
+        displayMangaFast(mangaToDisplay);
+        
+        // Update offset for next page
+        currentOffset += limit;
+        
+        // If we got fewer items than requested, there are no more results
+        if (data.data.length < limit) {
+            hasMoreResults = false;
+        }
+        
+        // Show end message if we've reached the end
+        if (!hasMoreResults && endResults) {
+            endResults.style.display = 'block';
+        } else {
+            if (endResults) endResults.style.display = 'none';
+        }
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            console.error('Request timeout');
+            showToast('Request timed out. Please try again.', 'error');
+        } else {
+            console.error('Error loading manga:', error);
+            showToast('Failed to load manga. Please try again.', 'error');
+        }
+    } finally {
+        isLoading = false;
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+    }
+}
+
+// FAST display function - shows manga immediately without waiting for stats
+function displayMangaFast(mangaList) {
     if (!resultsContainer) return;
     
-    const mangaIds = mangaList.map(m => m.id).join(',');
-    let statsData = {};
+    mangaList.forEach(manga => {
+        const coverFileName = manga.relationships.find(r => r.type === 'cover_art')?.attributes?.fileName;
+        const coverUrl = coverFileName ? `${CDN_URL}/covers/${manga.id}/${coverFileName}` : 'https://via.placeholder.com/200x280?text=No+Cover';
+        
+        const title = manga.attributes.title.en || Object.values(manga.attributes.title)[0] || 'Unknown Title';
+        
+        // Use placeholder rating initially
+        const ratingDisplay = '?';
+        
+        const card = document.createElement('div');
+        card.className = 'manga-card';
+        
+        card.innerHTML = `
+            <img src="${coverUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x280?text=No+Cover'">
+            <div class="manga-info">
+                <div class="manga-title">${title}</div>
+                <div class="manga-stats">
+                    <span><i class="fas fa-star" style="color: #ffd700;"></i> ${ratingDisplay}</span>
+                    <span><i class="fas fa-calendar"></i> ${manga.attributes.year || '?'}</span>
+                </div>
+            </div>
+        `;
+        
+        card.addEventListener('click', () => openMangaDetails(manga.id, title));
+        resultsContainer.appendChild(card);
+    });
     
+    // Fetch stats in background (doesn't block display)
+    fetchStatsInBackground(mangaList);
+}
+
+// Background stats fetching
+async function fetchStatsInBackground(mangaList) {
     try {
+        const mangaIds = mangaList.map(m => m.id).join(',');
         const statsResponse = await fetch(`${BASE_URL}/statistics/manga?manga=${mangaIds}`, {
             headers: FETCH_HEADERS
         });
         const stats = await statsResponse.json();
-        statsData = stats.statistics || {};
+        const statsData = stats.statistics || {};
+        
+        // Update cards with real stats
+        mangaList.forEach((manga, index) => {
+            const mangaStats = statsData[manga.id] || {};
+            const rating = mangaStats.rating || {};
+            const follows = mangaStats.follows || 0;
+            
+            let ratingDisplay = 'N/A';
+            if (rating.bayesian) {
+                ratingDisplay = rating.bayesian.toFixed(1);
+            } else if (rating.average) {
+                ratingDisplay = rating.average.toFixed(1);
+            }
+            
+            // Find and update the card (approximate - by position)
+            const cards = resultsContainer.children;
+            const startIndex = currentOffset - mangaList.length + index;
+            if (cards[startIndex]) {
+                const statsSpan = cards[startIndex].querySelector('.manga-stats span:first-child');
+                if (statsSpan) {
+                    statsSpan.innerHTML = `<i class="fas fa-star" style="color: #ffd700;"></i> ${ratingDisplay}`;
+                }
+            }
+        });
     } catch (error) {
-        console.error('Error fetching stats:', error);
-        // Continue without stats rather than failing
+        console.error('Error fetching stats in background:', error);
+        // Silently fail - stats are optional
     }
-    
-    mangaList.forEach(manga => {
-        displaySingleManga(manga, statsData[manga.id]);
-    });
 }
 
+// Display Single Manga (for bookmarks)
 function displaySingleManga(manga, stats = null) {
+    if (!resultsContainer) return;
+    
     const coverFileName = manga.relationships.find(r => r.type === 'cover_art')?.attributes?.fileName;
     const coverUrl = coverFileName ? `${CDN_URL}/covers/${manga.id}/${coverFileName}` : 'https://via.placeholder.com/200x280?text=No+Cover';
     
     const title = manga.attributes.title.en || Object.values(manga.attributes.title)[0] || 'Unknown Title';
     
-    const mangaStats = stats || {};
-    const rating = mangaStats.rating || {};
-    const follows = mangaStats.follows || 0;
+    const rating = stats?.rating || {};
+    const follows = stats?.follows || 0;
     
     let ratingDisplay = 'N/A';
     if (rating.bayesian) {
@@ -488,21 +705,23 @@ async function openMangaDetails(mangaId, title) {
     try {
         showToast('Loading manga details...', 'info');
         
+        // Fetch manga details with all includes
         const response = await fetch(`${BASE_URL}/manga/${mangaId}?includes[]=cover_art&includes[]=author&includes[]=artist&includes[]=tag`, {
             headers: FETCH_HEADERS
         });
         if (!response.ok) throw new Error('Failed to fetch manga details');
         const data = await response.json();
         
-        const statsResponse = await fetch(`${BASE_URL}/statistics/manga/${mangaId}`, {
+        // Fetch statistics in parallel with chapters
+        const statsPromise = fetch(`${BASE_URL}/statistics/manga/${mangaId}`, {
             headers: FETCH_HEADERS
-        });
-        let statsData = {};
-        if (statsResponse.ok) {
-            statsData = await statsResponse.json();
-        }
+        }).then(res => res.ok ? res.json() : {});
         
+        // Fetch chapters
         currentChapters = await fetchAllChapters(mangaId);
+        
+        // Get stats
+        const statsData = await statsPromise;
         
         if (mainContainer) mainContainer.style.display = 'none';
         if (detailsPage) detailsPage.style.display = 'block';
@@ -538,6 +757,7 @@ async function fetchAllChapters(mangaId) {
                 break;
             }
             
+            // Filter out chapters with no chapter number
             const validChapters = data.data.filter(ch => {
                 return ch.attributes.chapter !== null && ch.attributes.chapter !== undefined;
             });
@@ -550,6 +770,7 @@ async function fetchAllChapters(mangaId) {
             }
         }
         
+        // Sort chapters numerically
         allChapters.sort((a, b) => {
             const numA = parseFloat(a.attributes.chapter) || 0;
             const numB = parseFloat(b.attributes.chapter) || 0;
@@ -858,7 +1079,7 @@ function showDownloadOptions(index) {
     if (downloadOptionsModal) downloadOptionsModal.style.display = 'block';
 }
 
-// ============== FIXED: Download with proper image handling ==============
+// ============== FIXED: Download with correct URL construction ==============
 async function startDownload() {
     const quality = document.querySelector('input[name="quality"]:checked')?.value || 'original';
     
@@ -876,6 +1097,7 @@ async function startDownload() {
         const data = await response.json();
         
         // Step 2: Determine quality and get filenames
+        // IMPORTANT: The API uses 'data' for original and 'dataSaver' for compressed
         const qualityType = quality === 'original' ? 'data' : 'dataSaver';
         const pageFilenames = data.chapter[qualityType];
         const baseUrl = data.baseUrl;
@@ -917,11 +1139,16 @@ async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType
     // Download each image and add to ZIP
     for (let i = 0; i < pageFilenames.length; i++) {
         const filename = pageFilenames[i];
-        // Construct proper URL according to API docs
+        
+        // CRITICAL FIX: Construct URL according to MangaDex API docs
+        // Format: baseUrl/quality/chapterHash/filename
+        // Example: https://uploads.mangadex.org/data/1234567890/1234567890-1.jpg
         const pageUrl = `${baseUrl}/${qualityType}/${chapterHash}/${filename}`;
         
+        console.log('Downloading:', pageUrl); // Debug log
+        
         try {
-            // Fetch the image WITHOUT authentication headers
+            // Fetch the image WITHOUT authentication headers (as required by API)
             const response = await fetch(pageUrl);
             
             if (!response.ok) {
@@ -935,6 +1162,9 @@ async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType
             if (blob.size === 0) {
                 throw new Error('Empty image data');
             }
+            
+            // Log success
+            console.log(`Page ${i+1} downloaded: ${blob.size} bytes`);
             
             // Get file extension from original filename
             const fileExt = filename.split('.').pop() || 'jpg';
@@ -951,9 +1181,10 @@ async function createChapterZip(baseUrl, chapterHash, pageFilenames, qualityType
         } catch (error) {
             console.error(`Error downloading page ${i + 1}:`, error);
             showToast(`Error on page ${i + 1}, continuing...`, 'warning');
-            // Add a placeholder to indicate missing page
-            const placeholder = new Blob(['Page failed to download'], { type: 'text/plain' });
-            folder.file(`page_${String(i + 1).padStart(3, '0')}_ERROR.txt`, placeholder);
+            
+            // Add error info to ZIP instead of placeholder
+            const errorBlob = new Blob([`Failed to download: ${error.message}`], { type: 'text/plain' });
+            folder.file(`page_${String(i + 1).padStart(3, '0')}_ERROR.txt`, errorBlob);
         }
     }
     
@@ -1009,7 +1240,9 @@ function navigateChapter(direction) {
     openChapterReader(newIndex);
 }
 
+// ============== FIXED: Handle scroll with proper infinite loading ==============
 function handleScroll() {
+    // Show/hide back to top button
     if (backToTop) {
         if (window.scrollY > 300) {
             backToTop.classList.add('show');
@@ -1018,16 +1251,16 @@ function handleScroll() {
         }
     }
     
-    // Infinite scroll - only trigger if we're not already loading and have more results
+    // Infinite scroll - only on home page
     if (mainContainer && mainContainer.style.display !== 'none' && !isLoading && hasMoreResults) {
-        const scrollPosition = window.innerHeight + window.scrollY;
-        const threshold = document.body.offsetHeight - 500;
+        const scrollY = window.scrollY;
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.scrollHeight;
         
-        if (scrollPosition >= threshold) {
-            // Add small delay to prevent multiple rapid requests
-            setTimeout(() => {
-                loadManga();
-            }, 300);
+        // When user scrolls near the bottom (within 300px)
+        if (scrollY + windowHeight >= documentHeight - 300) {
+            console.log('Loading more manga...'); // Debug log
+            loadManga();
         }
     }
 }
