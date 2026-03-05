@@ -363,7 +363,7 @@ function getGenreId(genre) {
     return genreMap[genre];
 }
 
-// ============== AGGRESSIVE RANDOMIZATION: Load Manga with maximum variety ==============
+// ============== FIXED: Load Manga with RANDOMIZED results ==============
 async function loadManga() {
     if (isLoading || !hasMoreResults) return;
     
@@ -371,9 +371,10 @@ async function loadManga() {
     if (loadingIndicator) loadingIndicator.style.display = 'block';
 
     try {
+        // Use smaller limit for faster loading
         const limit = 20;
         
-        // Check API limit
+        // Check API limit (offset + limit ≤ 10000)
         if (currentOffset + limit > 10000) {
             hasMoreResults = false;
             if (endResults) endResults.style.display = 'block';
@@ -381,123 +382,27 @@ async function loadManga() {
         }
 
         // Generate random seed for consistent randomization per session
+        // This ensures the same random order throughout the session
         if (!window.randomSeed) {
             window.randomSeed = Math.floor(Math.random() * 1000000);
         }
-
-        // For maximum variety on first load and when no search/filter is active
-        if (!currentQuery && currentGenre === 'all' && currentOffset === 0) {
-            try {
-                showToast('Loading random manga collection...', 'info');
-                
-                // Fetch a larger batch to shuffle from (API max is 100)
-                const largeUrl = `${BASE_URL}/manga?limit=50&offset=0&includes[]=cover_art&order[createdAt]=desc&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
-                
-                const largeResponse = await fetch(largeUrl, { headers: FETCH_HEADERS });
-                
-                if (!largeResponse.ok) throw new Error('Failed to fetch large batch');
-                
-                const largeData = await largeResponse.json();
-                
-                if (largeData.data && largeData.data.length > 0) {
-                    // Create a pool of manga to shuffle from
-                    let mangaPool = [...largeData.data];
-                    
-                    // Aggressive shuffle using Fisher-Yates with seed
-                    for (let i = mangaPool.length - 1; i > 0; i--) {
-                        // Use seed to create deterministic but random-looking shuffle
-                        const pseudoRandom = (Math.sin(i * window.randomSeed) * 10000) % 1;
-                        const j = Math.floor(pseudoRandom * (i + 1));
-                        [mangaPool[i], mangaPool[j]] = [mangaPool[j], mangaPool[i]];
-                    }
-                    
-                    // Also shuffle based on random sort criteria for extra variety
-                    const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
-                    const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
-                    
-                    // Apply additional sorting based on random criteria
-                    mangaPool.sort((a, b) => {
-                        const getValue = (manga, sortType) => {
-                            switch(sortType) {
-                                case 'followedCount':
-                                    return manga.attributes.followedCount || 0;
-                                case 'createdAt':
-                                    return new Date(manga.attributes.createdAt).getTime();
-                                case 'updatedAt':
-                                    return new Date(manga.attributes.updatedAt).getTime();
-                                case 'rating':
-                                    return manga.attributes.rating?.bayesian || manga.attributes.rating?.average || 0;
-                                default:
-                                    return 0;
-                            }
-                        };
-                        
-                        const valA = getValue(a, randomSort);
-                        const valB = getValue(b, randomSort);
-                        
-                        // Randomize direction sometimes
-                        if (Math.random() > 0.5) {
-                            return valB - valA;
-                        } else {
-                            return valA - valB;
-                        }
-                    });
-                    
-                    // Take first 20 for immediate display
-                    const displayManga = mangaPool.slice(0, 20);
-                    
-                    // Store remaining in a queue for next pages
-                    window.mangaQueue = mangaPool.slice(20);
-                    
-                    // Display the randomized manga
-                    displayMangaFast(displayManga);
-                    
-                    // Update offset to reflect we used the large batch
-                    currentOffset = 50;
-                    
-                    showToast('Found ' + largeData.total + ' manga!', 'success');
-                    
-                    isLoading = false;
-                    if (loadingIndicator) loadingIndicator.style.display = 'none';
-                    
-                    // Prefetch next batch in background
-                    setTimeout(() => {
-                        if (window.mangaQueue && window.mangaQueue.length > 0) {
-                            console.log('Next batch ready in queue:', window.mangaQueue.length);
-                        }
-                    }, 1000);
-                    
-                    return;
-                }
-            } catch (error) {
-                console.error('Error fetching large batch, falling back to normal load:', error);
-                // Fall through to normal loading
-            }
-        }
         
-        // For subsequent pages or when search/filter is active
-        // Check if we have queued manga from the large batch
-        if (!currentQuery && currentGenre === 'all' && window.mangaQueue && window.mangaQueue.length > 0) {
-            // Take next 20 from queue
-            const nextBatch = window.mangaQueue.slice(0, limit);
-            window.mangaQueue = window.mangaQueue.slice(limit);
-            
-            displayMangaFast(nextBatch);
-            currentOffset += limit;
-            
-            // If queue is empty, we'll need to fetch more next time
-            if (window.mangaQueue.length === 0) {
-                window.mangaQueue = null;
-                // We'll fetch more on next scroll
-            }
-            
-            isLoading = false;
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-            return;
-        }
+        // Build URL with random sorting for variety
+        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&order[createdAt]=desc&contentRating[]=safe&contentRating[]=suggestive&availableTranslatedLanguage[]=en`;
         
-        // Normal API pagination for search/filter or when queue is empty
-        let url = `${BASE_URL}/manga?limit=${limit}&offset=${currentOffset}&includes[]=cover_art&contentRating[]=safe&contentRating[]=suggestive&contentRating[]=erotica&availableTranslatedLanguage[]=en`;
+        // Add randomization parameters
+        // Option 1: Use random order (most effective)
+        url += `&order[followedCount]=desc&order[createdAt]=desc&order[updatedAt]=desc`;
+        
+        // Option 2: Add random seed if API supports it (MangaDex doesn't directly, but we can use multiple sort criteria)
+        
+        // If no search query, add more randomization by mixing sort orders
+        if (!currentQuery && currentGenre === 'all') {
+            // Randomly choose a sort order each time to get variety
+            const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
+            const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
+            url += `&order[${randomSort}]=desc`;
+        }
         
         // Add search query if present
         if (currentQuery) {
@@ -511,21 +416,10 @@ async function loadManga() {
                 url += `&includedTags[]=${genreId}`;
             }
         }
-        
-        // Randomize sort order for variety when not searching/filtering
-        if (!currentQuery && currentGenre === 'all') {
-            const sortOptions = ['followedCount', 'createdAt', 'updatedAt', 'rating'];
-            const randomSort = sortOptions[Math.floor(Math.random() * sortOptions.length)];
-            const randomDirection = Math.random() > 0.5 ? 'desc' : 'asc';
-            url += `&order[${randomSort}]=${randomDirection}`;
-        } else {
-            // Default sort for searches
-            url += `&order[followedCount]=desc`;
-        }
 
         // Use AbortController for timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
         
         const response = await fetch(url, { 
             headers: FETCH_HEADERS,
@@ -543,20 +437,19 @@ async function loadManga() {
             return;
         }
 
-        // Apply local shuffling for extra variety
-        let mangaToDisplay = [...data.data];
-        
+        // For even more variety, shuffle the results locally
+        // This creates a pseudo-random order while maintaining pagination
+        const shuffledData = [...data.data];
         if (!currentQuery && currentGenre === 'all') {
-            // Shuffle using seed for consistent but random order
-            for (let i = mangaToDisplay.length - 1; i > 0; i--) {
-                const pseudoRandom = (Math.sin(i * window.randomSeed) * 10000) % 1;
-                const j = Math.floor(pseudoRandom * (i + 1));
-                [mangaToDisplay[i], mangaToDisplay[j]] = [mangaToDisplay[j], mangaToDisplay[i]];
+            // Simple Fisher-Yates shuffle based on seed
+            for (let i = shuffledData.length - 1; i > 0; i--) {
+                const j = (Math.floor(Math.random() * (i + 1)) + window.randomSeed) % (i + 1);
+                [shuffledData[i], shuffledData[j]] = [shuffledData[j], shuffledData[i]];
             }
         }
 
         // Display manga immediately
-        displayMangaFast(mangaToDisplay);
+        displayMangaFast(shuffledData);
         
         // Update offset for next page
         currentOffset += limit;
@@ -570,6 +463,7 @@ async function loadManga() {
         if (!hasMoreResults && endResults) {
             endResults.style.display = 'block';
         } else {
+            // Hide end results if there are more
             if (endResults) endResults.style.display = 'none';
         }
         
