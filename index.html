@@ -29,10 +29,13 @@
 
         <!-- Navigation Links -->
         <div class="nav-links" id="navLinks">
-            <a href="#home" class="active"><i class="fas fa-home"></i> Home</a>
-            <a href="#popular"><i class="fas fa-fire"></i> Popular</a>
-            <a href="#bookmarks"><i class="fas fa-bookmark"></i> Bookmarks</a>
-            <a href="#downloads"><i class="fas fa-download"></i> Downloads</a>
+            <a href="#home" class="active" id="homeBtn"><i class="fas fa-home"></i> Home</a>
+            <a href="#popular" id="popularBtn"><i class="fas fa-fire"></i> Popular</a>
+            <a href="#trending" id="trendingBtn"><i class="fas fa-chart-line"></i> Trending</a>
+            <a href="#hot" id="hotBtn"><i class="fas fa-star"></i> Hot</a>
+            <a href="#recent" id="recentBtn"><i class="fas fa-clock"></i> Recent</a>
+            <a href="#bookmarks" id="bookmarksBtn"><i class="fas fa-bookmark"></i> Bookmarks</a>
+            <a href="#downloads" id="downloadsBtn"><i class="fas fa-download"></i> Downloads</a>
             <a href="contact.html" class="contact-btn"><i class="fas fa-envelope"></i> Contact Me</a>
         </div>
 
@@ -43,7 +46,7 @@
     </nav>
 
     <!-- Main Container -->
-    <div class="main-container" id="home">
+    <div class="main-container" id="mainContainer">
         <!-- Hero Section -->
         <section class="hero-section">
             <div class="hero-content">
@@ -85,7 +88,7 @@
                 <span>Loading amazing content...</span>
             </div>
 
-            <!-- End of Results Marker (permanent footer) -->
+            <!-- End of Results Marker -->
             <div class="end-results" id="endResults" style="display: none;">
                 <div class="end-results-content">
                     <i class="fas fa-check-circle"></i>
@@ -96,7 +99,7 @@
         </div>
     </div>
 
-    <!-- Manga Details Page (instead of modal) -->
+    <!-- Manga Details Page -->
     <div class="details-page" id="detailsPage" style="display: none;">
         <div class="details-container">
             <!-- Back Button -->
@@ -107,7 +110,7 @@
 
             <!-- Manga Details Content -->
             <div class="manga-details-wrapper" id="mangaDetailsWrapper">
-                <!-- Content will be populated by JS -->
+                <!-- Template for manga details - populated by JS -->
             </div>
         </div>
     </div>
@@ -135,7 +138,7 @@
         </div>
     </div>
 
-    <!-- Download Options Modal (small modal for downloads) -->
+    <!-- Download Options Modal -->
     <div class="modal" id="downloadOptionsModal">
         <div class="modal-content download-modal">
             <div class="modal-header">
