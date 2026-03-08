@@ -1,6 +1,6 @@
-// Consumet API Configuration
-const BASE_URL = "https://api.consumet.org/manga/mangahere";
-const PROXY_URL = "https://api.consumet.org/manga/mangahere/proxy";
+// Use your local proxy, NOT the direct API
+const BASE_URL = "/api/consumet";  // This will go through your server
+const PROXY_URL = "/api/proxy-image";  // This will go through your server
 
 // Add required headers
 const FETCH_HEADERS = {

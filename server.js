@@ -17,7 +17,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "https:", "http:", "*"],
-            connectSrc: ["'self'", "https://api.consumet.org"]
+            connectSrc: ["'self'", "https://api.consumet.org", "http://localhost:8080"]
         }
     }
 }));
@@ -32,7 +32,7 @@ app.use(cors({
 // Compression
 app.use(compression());
 
-// Proxy for Consumet API
+// Proxy for Consumet API - FIXED VERSION
 app.use('/api/consumet', createProxyMiddleware({
     target: 'https://api.consumet.org',
     changeOrigin: true,
@@ -44,11 +44,11 @@ app.use('/api/consumet', createProxyMiddleware({
     },
     onError: (err, req, res) => {
         console.error('Proxy Error:', err);
-        res.status(500).json({ error: 'Proxy error occurred' });
+        res.status(500).json({ error: 'Proxy error occurred', details: err.message });
     }
 }));
 
-// Proxy for images (to handle CORS)
+// Proxy for images
 app.use('/api/proxy-image', createProxyMiddleware({
     target: 'https://api.consumet.org',
     changeOrigin: true,
@@ -56,9 +56,9 @@ app.use('/api/proxy-image', createProxyMiddleware({
         '^/api/proxy-image': '/manga/mangahere/proxy'
     },
     onProxyReq: (proxyReq, req, res) => {
-        // Pass through the URL parameter
         if (req.query.url) {
-            const url = encodeURIComponent(req.query.url);
+            // Fix: Don't encode again if already encoded
+            const url = req.query.url;
             proxyReq.path = `/manga/mangahere/proxy?url=${url}`;
         }
     },
@@ -71,14 +71,19 @@ app.use('/api/proxy-image', createProxyMiddleware({
 // Serve static files
 app.use(express.static(path.join(__dirname)));
 
+// API status endpoint
+app.get('/api/status', (req, res) => {
+    res.json({ status: 'OK', message: 'ZIKKY MANGA HUB API is running' });
+});
+
 // Serve index.html for all routes (SPA support)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Start server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 ZIKKY MANGA HUB running on port ${PORT}`);
     console.log(`📚 Server started at ${new Date().toISOString()}`);
-    console.log(`🔄 Using Consumet API for manga`);
+    console.log(`🔄 Using Consumet API proxy`);
 });
