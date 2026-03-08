@@ -3,6 +3,7 @@ const path = require('path');
 const compression = require('compression');
 const helmet = require('helmet');
 const cors = require('cors');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -16,12 +17,12 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://cdnjs.cloudflare.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "https:", "http:", "*"],
-            connectSrc: ["'self'", "https://api.mangadex.org", "https://uploads.mangadex.org"]
+            connectSrc: ["'self'", "https://api.consumet.org"]
         }
     }
 }));
 
-// Enable CORS for MangaDex API
+// Enable CORS
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
@@ -31,25 +32,44 @@ app.use(cors({
 // Compression
 app.use(compression());
 
+// Proxy for Consumet API
+app.use('/api/consumet', createProxyMiddleware({
+    target: 'https://api.consumet.org',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/consumet': '/manga/mangahere'
+    },
+    onProxyReq: (proxyReq, req, res) => {
+        proxyReq.setHeader('User-Agent', 'ZIKKY-MANGA-HUB/1.0');
+    },
+    onError: (err, req, res) => {
+        console.error('Proxy Error:', err);
+        res.status(500).json({ error: 'Proxy error occurred' });
+    }
+}));
+
+// Proxy for images (to handle CORS)
+app.use('/api/proxy-image', createProxyMiddleware({
+    target: 'https://api.consumet.org',
+    changeOrigin: true,
+    pathRewrite: {
+        '^/api/proxy-image': '/manga/mangahere/proxy'
+    },
+    onProxyReq: (proxyReq, req, res) => {
+        // Pass through the URL parameter
+        if (req.query.url) {
+            const url = encodeURIComponent(req.query.url);
+            proxyReq.path = `/manga/mangahere/proxy?url=${url}`;
+        }
+    },
+    onError: (err, req, res) => {
+        console.error('Image Proxy Error:', err);
+        res.status(500).send('Image proxy error');
+    }
+}));
+
 // Serve static files
 app.use(express.static(path.join(__dirname)));
-
-// API Proxy (optional - if you need to hide API calls)
-app.get('/api/proxy/manga/*', async (req, res) => {
-    try {
-        const apiUrl = `https://api.mangadex.org${req.url.replace('/api/proxy/manga', '')}`;
-        const response = await fetch(apiUrl, {
-            headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'ZIKKY-MANGA-HUB/1.0'
-            }
-        });
-        const data = await response.json();
-        res.json(data);
-    } catch (error) {
-        res.status(500).json({ error: 'API proxy error' });
-    }
-});
 
 // Serve index.html for all routes (SPA support)
 app.get('*', (req, res) => {
@@ -60,4 +80,5 @@ app.get('*', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 ZIKKY MANGA HUB running on port ${PORT}`);
     console.log(`📚 Server started at ${new Date().toISOString()}`);
+    console.log(`🔄 Using Consumet API for manga`);
 });
