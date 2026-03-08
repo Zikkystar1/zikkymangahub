@@ -3,7 +3,7 @@
 // ============================================
 
 // API Configuration
-const CONSUMET_URL = "https://zikkymangahub-emg2.onrender.com"; // UPDATE THIS URL
+const CONSUMET_URL = "https://zikky-consumet-api.onrender.com"; // UPDATE THIS URL
 const MANGA_PROVIDER = "mangahere";
 
 // State Management
