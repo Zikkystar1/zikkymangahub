@@ -1,7 +1,7 @@
 {
   "name": "zikky-manga-hub",
   "version": "1.0.0",
-  "description": "Premium Manhwa Reader with Consumet API integration - Node.js web service",
+  "description": "Premium Manhwa Reader with MangaDex API integration - Node.js web service",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,7 +11,7 @@
     "manga",
     "manhwa",
     "reader",
-    "consumet",
+    "mangadex",
     "webtoon",
     "zikky"
   ],
@@ -22,7 +22,7 @@
     "compression": "^1.7.4",
     "helmet": "^7.0.0",
     "cors": "^2.8.5",
-    "http-proxy-middleware": "^2.0.6"
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
