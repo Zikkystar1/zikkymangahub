@@ -2201,7 +2201,7 @@
                 <div class="manga-stats">
                     <span class="rating-span">
                         <i class="fas fa-star" style="color:#ffd700;"></i> 
-                        <span class="rating-value">?</span>
+                        <span class="rating-value">FREE</span>
                     </span>
                     <span><i class="fas fa-calendar"></i> ${year}</span>
                 </div>
@@ -2583,7 +2583,7 @@ showPopular = function() {
                                 <span class="stat-value">${follows.toLocaleString()}</span>
                             </div>
                             <div class="stat-item">
-                                <span class="stat-label"><i class="fas fa-book"></i> Chapters</span>
+                                <span class="stat-label"><i class="fas fa-book"></i> Chapter(s)</span>
                                 <span class="stat-value">${currentChapters.length}</span>
                             </div>
                             <div class="stat-item">
@@ -2625,7 +2625,7 @@ showPopular = function() {
                 </div>
                 
                 <div class="chapters-section">
-                    <h3><i class="fas fa-list"></i> Chapters (${currentChapters.length})</h3>
+                    <h3><i class="fas fa-list"></i> Chapter(s) (${currentChapters.length})</h3>
                     <div class="chapter-list" id="chapterList">
                         ${currentChapters.length > 0 ? 
                             currentChapters.map((ch, index) => `
@@ -2645,7 +2645,7 @@ showPopular = function() {
                                     </div>
                                 </div>
                             `).join('') 
-                            : '<div style="text-align:center; padding:40px;">No chapters available</div>'
+                            : '<div style="text-align:center; padding:40px;">No chapters available 😥</div>'
                         }
                     </div>
                 </div>
@@ -2680,7 +2680,7 @@ showPopular = function() {
                 if (currentChapters.length > 0) {
                     openChapterReader(0);
                 } else {
-                    showToast('No chapters available', 'info');
+                    showToast('No chapters available 🤧', 'info');
                 }
             });
             
