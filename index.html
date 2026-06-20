@@ -2193,6 +2193,7 @@
         card.className = 'manga-card';
         card.dataset.mangaId = manga.id;
         
+        // ✅ FIXED: Added rating-span and rating-value classes
         card.innerHTML = `
             <img src="${coverUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x280?text=No+Cover'">
             <div class="manga-info">
@@ -2226,13 +2227,17 @@
             
             const card = document.createElement('div');
             card.className = 'manga-card';
+            card.dataset.mangaId = manga.id;
             
             card.innerHTML = `
                 <img src="${coverUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x280?text=No+Cover'">
                 <div class="manga-info">
                     <div class="manga-title">${title}</div>
                     <div class="manga-stats">
-                        <span><i class="fas fa-star" style="color:#ffd700;"></i> ?</span>
+<span class="rating-span">
+    <i class="fas fa-star" style="color:#ffd700;"></i> 
+    <span class="rating-value">?</span>
+</span>
                         <span><i class="fas fa-calendar"></i> ${year}</span>
                     </div>
                 </div>
@@ -2975,7 +2980,7 @@ showPopular = function() {
             setTimeout(() => {
                 toast.style.animation = 'fadeOut 0.3s ease';
                 setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            }, 3200);
         }
     </script>
 </body>
