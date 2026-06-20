@@ -2755,23 +2755,37 @@ showPopular = function() {
         }
 
         function displayReader(pages) {
-            const readerBody = document.getElementById('readerBody');
-            const readerTitle = document.getElementById('readerTitle');
-            const chapterIndicator = document.getElementById('chapterIndicator');
-            
-            if (readerTitle) {
-                readerTitle.textContent = selectedManga.title;
-            }
-            
-            if (chapterIndicator) {
-                chapterIndicator.textContent = `Chapter ${selectedChapter.number}/${currentChapters.length}`;
-            }
-            
-            if (readerBody) {
-                readerBody.innerHTML = pages.map(page => 
-                    `<img src="${page}" alt="Page" loading="lazy" onerror="this.src='https://via.placeholder.com/800x1200?text=Error+Loading+Page'">`
-                ).join('');
-            }
+    const readerBody = document.getElementById('readerBody');
+    const readerTitle = document.getElementById('readerTitle');
+    const chapterIndicator = document.getElementById('chapterIndicator');
+    
+    if (readerTitle) {
+        readerTitle.textContent = selectedManga.title;
+    }
+    
+    if (chapterIndicator) {
+        chapterIndicator.textContent = `Chapter ${selectedChapter.number}/${currentChapters.length}`;
+    }
+    
+    if (readerBody) {
+        // ✅ FIXED: Check if pages exist
+        if (!pages || pages.length === 0) {
+            readerBody.innerHTML = '<div style="text-align:center; padding:50px; color:var(--text-muted);">No pages available</div>';
+            return;
+        }
+        
+        // ✅ FIXED: Use correct alt text
+        readerBody.innerHTML = pages.map((page, index) => 
+            `<img 
+                src="${page}" 
+                alt="Page ${index + 1}" 
+                loading="lazy" 
+                onerror="this.src='https://via.placeholder.com/800x1200?text=Page+${index+1}+Error'"
+                style="max-width:100%; max-height:95vh; border-radius:10px; display:block;"
+            >`
+        ).join('');
+    }
+}
             
             const readerContainer = document.querySelector('.reader-container');
             if (readerContainer) readerContainer.scrollTop = 0;
