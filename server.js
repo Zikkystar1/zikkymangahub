@@ -43,35 +43,70 @@ app.get('/ping', (req, res) => {
 // API Proxy with enhanced error handling
 app.get('/api/proxy/manga/*', async (req, res) => {
     try {
-        const apiUrl = `https://api.mangadex.org${req.url.replace('/api/proxy/manga', '')}`;
+        // ✅ FIXED: Proper URL construction
+        const apiPath = req.url.replace('/api/proxy/manga', '');
+        const apiUrl = `https://api.mangadex.org${apiPath}`;
         
-        // Add timeout to prevent hanging requests
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        console.log('🔄 Proxying request to:', apiUrl);
         
         const response = await fetch(apiUrl, {
             headers: {
                 'Accept': 'application/json',
                 'User-Agent': 'ZIKKY-MANGA-HUB/1.0'
-            },
-            signal: controller.signal
+            }
         });
         
-        clearTimeout(timeoutId);
-        
         if (!response.ok) {
-            throw new Error(`API responded with status ${response.status}`);
+            console.error('❌ API error:', response.status);
+            return res.status(response.status).json({ 
+                error: 'API error', 
+                status: response.status 
+            });
         }
         
         const data = await response.json();
         res.json(data);
+        
     } catch (error) {
-        console.error('Proxy error:', error.message);
+        console.error('❌ Proxy error:', error.message);
         res.status(500).json({ 
             error: 'API proxy error', 
             message: error.message,
             timestamp: new Date().toISOString()
         });
+    }
+});
+
+// ✅ ADD THIS: Direct image proxy for MangaDex images
+app.get('/api/proxy/image/*', async (req, res) => {
+    try {
+        const imagePath = req.url.replace('/api/proxy/image/', '');
+        const imageUrl = `https://uploads.mangadex.org/${imagePath}`;
+        
+        console.log('🔄 Proxying image:', imageUrl);
+        
+        const response = await fetch(imageUrl, {
+            headers: {
+                'User-Agent': 'ZIKKY-MANGA-HUB/1.0'
+            }
+        });
+        
+        if (!response.ok) {
+            return res.status(response.status).send('Image not found');
+        }
+        
+        // Get the content type
+        const contentType = response.headers.get('content-type') || 'image/jpeg';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+        
+        // Stream the image data
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+        
+    } catch (error) {
+        console.error('❌ Image proxy error:', error.message);
+        res.status(500).send('Image proxy error');
     }
 });
 
