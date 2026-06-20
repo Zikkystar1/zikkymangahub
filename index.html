@@ -966,6 +966,103 @@
             .manga-card img { height: 170px; }
             .refresh-button, .back-to-top { width: 45px; height: 45px; font-size: 1rem; }
         }
+        /* ============== RATING COUNTER ANIMATION ============== */
+
+/* Rating counter styles */
+.rating-span .rating-value {
+    display: inline-block;
+    min-width: 30px;
+    transition: all 0.3s ease;
+    font-variant-numeric: tabular-nums;
+}
+
+.rating-span .rating-value.counting {
+    animation: countPulse 0.8s ease-in-out;
+}
+
+@keyframes countPulse {
+    0% { 
+        transform: scale(0.5); 
+        opacity: 0.3;
+        color: #ff6b6b;
+    }
+    50% { 
+        transform: scale(1.3); 
+        opacity: 1;
+        color: #ffd700;
+    }
+    100% { 
+        transform: scale(1); 
+        opacity: 1;
+    }
+}
+
+/* Star glow effect when rating updates */
+.rating-span i.fa-star {
+    transition: all 0.5s ease;
+}
+
+.rating-span i.fa-star.pulse-star {
+    animation: starPulse 0.6s ease-in-out;
+}
+
+@keyframes starPulse {
+    0% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 0px rgba(255, 215, 0, 0));
+    }
+    50% { 
+        transform: scale(1.5);
+        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.8));
+    }
+    100% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 0px rgba(255, 215, 0, 0));
+    }
+}
+
+/* Rating color based on score */
+.rating-span .rating-value.excellent {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.rating-span .rating-value.good {
+    color: #ffa500;
+    text-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+}
+
+.rating-span .rating-value.average {
+    color: #ff6b6b;
+    text-shadow: 0 0 10px rgba(255, 107, 107, 0.3);
+}
+
+.rating-span .rating-value.poor {
+    color: #ff4757;
+    text-shadow: 0 0 10px rgba(255, 71, 87, 0.3);
+}
+
+/* Smooth number transition */
+.rating-span .rating-value {
+    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Light theme adjustments */
+body.light-theme .rating-span .rating-value.excellent {
+    color: #b8860b;
+}
+
+body.light-theme .rating-span .rating-value.good {
+    color: #cc8400;
+}
+
+body.light-theme .rating-span .rating-value.average {
+    color: #cc3333;
+}
+
+body.light-theme .rating-span .rating-value.poor {
+    color: #cc1133;
+}
     </style>
 </head>
 <body>
@@ -1631,36 +1728,40 @@
         }
 
         function displayManga(mangaList) {
-            if (!resultsContainer) return;
-            
-            mangaList.forEach(manga => {
-                const coverFileName = manga.relationships.find(r => r.type === 'cover_art')?.attributes?.fileName;
-                const coverUrl = coverFileName ? `${CDN_URL}/covers/${manga.id}/${coverFileName}` : 'https://via.placeholder.com/200x280?text=No+Cover';
-                
-                const title = manga.attributes.title.en || Object.values(manga.attributes.title)[0] || 'Unknown';
-                const year = manga.attributes.year || '?';
-                
-                const card = document.createElement('div');
-                card.className = 'manga-card';
-                card.dataset.mangaId = manga.id;
-                
-                card.innerHTML = `
-                    <img src="${coverUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x280?text=No+Cover'">
-                    <div class="manga-info">
-                        <div class="manga-title">${title}</div>
-                        <div class="manga-stats">
-                            <span class="rating-span"><i class="fas fa-star" style="color:#ffd700;"></i> <span class="rating-value">?</span></span>
-                            <span><i class="fas fa-calendar"></i> ${year}</span>
-                        </div>
-                    </div>
-                `;
-                
-                card.addEventListener('click', () => openMangaDetails(manga.id, title));
-                resultsContainer.appendChild(card);
-            });
-            
-            fetchMangaStats(mangaList);
-        }
+    if (!resultsContainer) return;
+    
+    mangaList.forEach((manga) => {
+        const coverFileName = manga.relationships.find(r => r.type === 'cover_art')?.attributes?.fileName;
+        const coverUrl = coverFileName ? `${CDN_URL}/covers/${manga.id}/${coverFileName}` : 'https://via.placeholder.com/200x280?text=No+Cover';
+        
+        const title = manga.attributes.title.en || Object.values(manga.attributes.title)[0] || 'Unknown';
+        const year = manga.attributes.year || '?';
+        
+        const card = document.createElement('div');
+        card.className = 'manga-card';
+        card.dataset.mangaId = manga.id;
+        
+        card.innerHTML = `
+            <img src="${coverUrl}" alt="${title}" loading="lazy" onerror="this.src='https://via.placeholder.com/200x280?text=No+Cover'">
+            <div class="manga-info">
+                <div class="manga-title">${title}</div>
+                <div class="manga-stats">
+                    <span class="rating-span">
+                        <i class="fas fa-star" style="color:#ffd700;"></i> 
+                        <span class="rating-value">?</span>
+                    </span>
+                    <span><i class="fas fa-calendar"></i> ${year}</span>
+                </div>
+            </div>
+        `;
+        
+        card.addEventListener('click', () => openMangaDetails(manga.id, title));
+        resultsContainer.appendChild(card);
+    });
+    
+    // Fetch stats AFTER cards are added to DOM
+    fetchMangaStats(mangaList);
+}
 
         function displaySingleManga(manga) {
             if (!resultsContainer) return;
@@ -1691,47 +1792,210 @@
 
         // ============== FETCH MANGA STATS FOR RATINGS ==============
 
-        async function fetchMangaStats(mangaList) {
-            try {
-                const mangaIds = mangaList.map(m => m.id).join(',');
-                const response = await fetch(`${MANGADEX_URL}/statistics/manga?manga=${mangaIds}`, {
-                    headers: FETCH_HEADERS
-                });
-                
-                if (!response.ok) return;
-                
-                const data = await response.json();
-                const stats = data.statistics || {};
-                
-                const cards = resultsContainer.children;
-                const startIndex = cards.length - mangaList.length;
-                
-                mangaList.forEach((manga, index) => {
-                    const mangaStats = stats[manga.id];
-                    if (!mangaStats) return;
-                    
-                    let rating = 'N/A';
-                    if (mangaStats.rating) {
-                        if (mangaStats.rating.bayesian) {
-                            rating = mangaStats.rating.bayesian.toFixed(1);
-                        } else if (mangaStats.rating.average) {
-                            rating = mangaStats.rating.average.toFixed(1);
-                        }
-                    }
-                    
-                    const cardIndex = startIndex + index;
-                    if (cards[cardIndex]) {
-                        const ratingSpan = cards[cardIndex].querySelector('.rating-span .rating-value');
-                        if (ratingSpan) {
-                            ratingSpan.textContent = rating;
-                        }
-                    }
-                });
-                
-            } catch (error) {
-                console.error('Stats fetch error:', error);
-            }
+       async function fetchMangaStats(mangaList) {
+    try {
+        const mangaIds = mangaList.map(m => m.id).join(',');
+        
+        const response = await fetch(`${MANGADEX_URL}/statistics/manga?manga=${mangaIds}`, {
+            headers: FETCH_HEADERS
+        });
+        
+        if (!response.ok) {
+            console.warn('Stats fetch failed:', response.status);
+            return;
         }
+        
+        const data = await response.json();
+        const stats = data.statistics || {};
+        
+        const cards = resultsContainer.querySelectorAll('.manga-card');
+        
+        mangaList.forEach((manga) => {
+            const mangaStats = stats[manga.id];
+            if (!mangaStats) return;
+            
+            let rating = 'N/A';
+            if (mangaStats.rating) {
+                if (mangaStats.rating.bayesian && mangaStats.rating.bayesian > 0) {
+                    rating = mangaStats.rating.bayesian.toFixed(1);
+                } else if (mangaStats.rating.average && mangaStats.rating.average > 0) {
+                    rating = mangaStats.rating.average.toFixed(1);
+                }
+            }
+            
+            // Find card by data-manga-id
+            let card = null;
+            for (let i = 0; i < cards.length; i++) {
+                if (cards[i].dataset.mangaId === manga.id) {
+                    card = cards[i];
+                    break;
+                }
+            }
+            
+            if (card && rating !== 'N/A') {
+                const ratingSpan = card.querySelector('.rating-span .rating-value');
+                const starIcon = card.querySelector('.rating-span i.fa-star');
+                
+                if (ratingSpan) {
+                    // ⭐ ANIMATED COUNTER STARTS HERE
+                    animateRatingCounter(ratingSpan, starIcon, parseFloat(rating));
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.warn('Stats fetch error:', error);
+    }
+}
+
+// ============== ANIMATED RATING COUNTER ==============
+
+function animateRatingCounter(element, starIcon, targetRating) {
+    // Don't animate if rating is N/A or invalid
+    if (isNaN(targetRating) || targetRating <= 0) {
+        element.textContent = 'N/A';
+        return;
+    }
+    
+    // Get the current displayed value or start from 0
+    const currentText = element.textContent;
+    let startValue = 0;
+    
+    // If already has a number, start from there
+    if (!isNaN(parseFloat(currentText)) && currentText !== 'N/A') {
+        startValue = parseFloat(currentText);
+        // If already at target, just update color
+        if (Math.abs(startValue - targetRating) < 0.01) {
+            updateRatingColor(element, targetRating);
+            return;
+        }
+    }
+    
+    // Determine animation duration based on rating value
+    // Higher rating = slower count (more impressive)
+    const duration = Math.min(800 + (targetRating * 50), 1500); // 800ms - 1500ms
+    
+    // Number of steps in the animation
+    const steps = Math.min(Math.floor(targetRating) + 1, 10);
+    const stepDuration = duration / steps;
+    
+    // Start the counter
+    let currentStep = 0;
+    
+    // Add counting class for pulse effect
+    element.classList.add('counting');
+    
+    // Star pulse effect
+    if (starIcon) {
+        starIcon.classList.add('pulse-star');
+        setTimeout(() => {
+            starIcon.classList.remove('pulse-star');
+        }, 600);
+    }
+    
+    // Clear any existing interval
+    if (element._counterInterval) {
+        clearInterval(element._counterInterval);
+    }
+    
+    element._counterInterval = setInterval(() => {
+        currentStep++;
+        
+        // Calculate progress (0 to 1)
+        const progress = currentStep / steps;
+        // Ease out cubic for smooth deceleration
+        const eased = 1 - Math.pow(1 - progress, 3);
+        // Calculate current value
+        const currentValue = eased * targetRating;
+        
+        // Display the current value
+        if (currentValue >= targetRating * 0.98) {
+            // Final value - show exact rating
+            element.textContent = targetRating.toFixed(1);
+            element.classList.remove('counting');
+            
+            // Update color based on rating
+            updateRatingColor(element, targetRating);
+            
+            // Add a small celebration bounce
+            element.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                element.style.transform = 'scale(1)';
+            }, 200);
+            
+            // Clear interval
+            clearInterval(element._counterInterval);
+            element._counterInterval = null;
+            
+        } else {
+            // Show rounded value during animation
+            if (currentValue < 1) {
+                // Count 0.1, 0.2, 0.3... for decimals
+                element.textContent = currentValue.toFixed(1);
+            } else {
+                // Show integer values for whole numbers
+                const displayValue = Math.floor(currentValue);
+                if (displayValue > 0) {
+                    element.textContent = displayValue;
+                } else {
+                    element.textContent = currentValue.toFixed(1);
+                }
+            }
+            
+            // Update color dynamically as it counts up
+            updateRatingColor(element, currentValue);
+        }
+        
+    }, stepDuration);
+}
+
+// ============== UPDATE RATING COLOR ==============
+
+function updateRatingColor(element, rating) {
+    // Remove existing color classes
+    element.classList.remove('excellent', 'good', 'average', 'poor');
+    
+    // Add appropriate class based on rating
+    if (rating >= 8.0) {
+        element.classList.add('excellent');
+        // Gold glow
+        element.style.textShadow = '0 0 20px rgba(255, 215, 0, 0.4)';
+    } else if (rating >= 6.0) {
+        element.classList.add('good');
+        element.style.textShadow = '0 0 15px rgba(255, 165, 0, 0.3)';
+    } else if (rating >= 4.0) {
+        element.classList.add('average');
+        element.style.textShadow = '0 0 10px rgba(255, 107, 107, 0.3)';
+    } else {
+        element.classList.add('poor');
+        element.style.textShadow = '0 0 10px rgba(255, 71, 87, 0.3)';
+    }
+}
+
+// ============== CLEAN UP INTERVALS (Optional) ==============
+
+// Clean up intervals when navigating away
+function cleanupRatingAnimations() {
+    document.querySelectorAll('.rating-span .rating-value').forEach(el => {
+        if (el._counterInterval) {
+            clearInterval(el._counterInterval);
+            el._counterInterval = null;
+        }
+    });
+}
+
+// Call this when changing views
+const originalShowHome = showHome;
+showHome = function() {
+    cleanupRatingAnimations();
+    originalShowHome.call(this);
+};
+
+const originalShowPopular = showPopular;
+showPopular = function() {
+    cleanupRatingAnimations();
+    originalShowPopular.call(this);
+};
 
         // ============== MANGA DETAILS ==============
 
@@ -2259,8 +2523,9 @@
             setTimeout(() => {
                 toast.style.animation = 'fadeOut 0.3s ease';
                 setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            }, 4000);
         }
     </script>
 </body>
 </html>
+
