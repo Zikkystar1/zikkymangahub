@@ -2940,6 +2940,7 @@ async function openChapterReader(index) {
         readerPage.style.display = 'block';
         document.body.style.overflow = 'hidden';
         
+        // Show loading screen
         const readerBody = document.getElementById('readerBody');
         if (readerBody) {
             readerBody.innerHTML = `
@@ -2993,12 +2994,19 @@ async function openChapterReader(index) {
                             transition: width 0.5s ease;
                         "></div>
                     </div>
+                    <p id="loadingStatus" style="
+                        margin-top: 10px;
+                        color: var(--text-muted);
+                        font-size: 0.8rem;
+                        opacity: 0.6;
+                    ">Preparing chapter...</p>
                 </div>
             `;
         }
         
         showToast('Loading chapter...', 'info');
-        updateLoadingProgress(20);
+        updateLoadingProgress(10);
+        updateLoadingStatus('Fetching chapter data...');
         
         const response = await fetch(`${MANGADEX_URL}/at-home/server/${selectedChapter.id}`, {
             headers: FETCH_HEADERS
@@ -3006,36 +3014,40 @@ async function openChapterReader(index) {
         
         if (!response.ok) throw new Error('Failed to load chapter');
         
-        updateLoadingProgress(50);
+        updateLoadingProgress(30);
+        updateLoadingStatus('Processing images...');
         
         const data = await response.json();
         
-        updateLoadingProgress(70);
+        updateLoadingProgress(50);
+        updateLoadingStatus('Building image URLs...');
         
-        // ✅ FIX: Use your IMAGE PROXY instead of direct CDN
-        const baseUrl = '/api/proxy/image';  // Your proxy endpoint
+        // Build image URLs using proxy
+        const baseUrl = '/api/proxy/image';
         const chapterHash = data.chapter.hash;
         const pageFilenames = data.chapter.data || [];
         
-        // Build URLs using your proxy
         const pages = pageFilenames.map(filename => 
             `${baseUrl}/data/${chapterHash}/${filename}`
         );
         
-        // 🔍 Debug: Log URLs
-        console.log('📸 Proxy Image URLs:', pages);
-        console.log('📸 First proxy image:', pages[0]);
+        console.log('📸 Total pages:', pages.length);
         
-        updateLoadingProgress(85);
+        // Load first 3 images, then show reader with individual loading
+        updateLoadingProgress(60);
+        updateLoadingStatus(`Loading first pages...`);
         
-        // ✅ Preload images
-        await preloadImages(pages);
+        // Load first 3 images (or all if less than 3)
+        const firstBatch = pages.slice(0, 3);
+        const remainingPages = pages.slice(3);
         
-        updateLoadingProgress(100);
+        // Preload first 3 images
+        await preloadBatch(firstBatch);
         
-        // ✅ Display the reader
-        displayReader(pages);
+        updateLoadingProgress(80);
+        updateLoadingStatus('Almost ready...');
         
+        // Hide loading screen and show reader with individual loading
         setTimeout(() => {
             const loadingScreen = document.getElementById('loadingScreen');
             if (loadingScreen) {
@@ -3045,7 +3057,16 @@ async function openChapterReader(index) {
                     loadingScreen.style.display = 'none';
                 }, 500);
             }
-        }, 400);
+        }, 300);
+        
+        // Display reader with first batch loaded, remaining will load individually
+        displayReaderWithLoading(pages, firstBatch);
+        
+        // Load remaining images in background with individual indicators
+        if (remainingPages.length > 0) {
+            updateLoadingStatus(`Loading remaining ${remainingPages.length} pages...`);
+            loadRemainingImages(remainingPages);
+        }
         
     } catch (error) {
         console.error('Error loading chapter:', error);
@@ -3095,59 +3116,56 @@ function updateLoadingProgress(percentage) {
     }
 }
 
-// ============== PRELOAD IMAGES ==============
+function updateLoadingStatus(message) {
+    const statusEl = document.getElementById('loadingStatus');
+    if (statusEl) {
+        statusEl.textContent = message;
+    }
+}
 
-function preloadImages(imageUrls) {
+// ============== PRELOAD BATCH ==============
+
+function preloadBatch(imageUrls) {
     return new Promise((resolve) => {
-        let loadedCount = 0;
-        const totalImages = imageUrls.length;
-        
-        if (totalImages === 0) {
+        if (!imageUrls || imageUrls.length === 0) {
             resolve();
             return;
         }
         
-        // ✅ Update progress as images load
-        function updateProgress() {
-            loadedCount++;
-            const percent = Math.min(85 + (loadedCount / totalImages) * 15, 99);
-            updateLoadingProgress(percent);
-        }
+        let loaded = 0;
+        const total = imageUrls.length;
         
-        // Load each image
-        imageUrls.forEach((url, index) => {
+        imageUrls.forEach((url) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
             
             img.onload = () => {
-                updateProgress();
-                if (loadedCount === totalImages) {
+                loaded++;
+                const progress = 60 + (loaded / total) * 20;
+                updateLoadingProgress(Math.min(progress, 80));
+                if (loaded === total) {
                     resolve();
                 }
             };
             
             img.onerror = () => {
-                // Still count as loaded even if error (show placeholder)
-                updateProgress();
-                if (loadedCount === totalImages) {
+                loaded++;
+                if (loaded === total) {
                     resolve();
                 }
             };
             
-            // Start loading
             img.src = url;
-            
-            // If image takes too long, still resolve
-            setTimeout(() => {
-                if (loadedCount === totalImages) {
-                    resolve();
-                }
-            }, 15000); // 15 second timeout
         });
+        
+        // Timeout fallback
+        setTimeout(resolve, 10000);
     });
 }
 
-    function displayReader(pages) {
+// ============== DISPLAY READER WITH INDIVIDUAL LOADING ==============
+
+function displayReaderWithLoading(allPages, preloadedPages) {
     const readerBody = document.getElementById('readerBody');
     const readerTitle = document.getElementById('readerTitle');
     const chapterIndicator = document.getElementById('chapterIndicator');
@@ -3161,7 +3179,7 @@ function preloadImages(imageUrls) {
     }
     
     if (readerBody) {
-        if (!pages || pages.length === 0) {
+        if (!allPages || allPages.length === 0) {
             readerBody.innerHTML = `
                 <div style="text-align:center; padding:50px; color:var(--text-muted);">
                     <i class="fas fa-exclamation-circle" style="font-size:3rem; color:var(--error);"></i>
@@ -3171,24 +3189,269 @@ function preloadImages(imageUrls) {
             return;
         }
         
-        // ✅ Clean and simple - no code rendering issues
-        readerBody.innerHTML = pages.map((page, index) => `
-            <div style="margin-bottom: 20px; width: 100%; display: flex; justify-content: center;">
-                <img 
-                    src="${page}" 
-                    alt="Page ${index + 1}" 
-                    loading="lazy"
-                    referrerpolicy="no-referrer"
-                    onerror="this.src='https://via.placeholder.com/800x1200/333/666?text=Error+${index+1}'"
-                    style="max-width:100%; max-height:95vh; border-radius:10px; display:block; background:#1a1a2e; box-shadow: 0 4px 20px rgba(0,0,0,0.3);"
-                >
-            </div>
-        `).join('');
+        // Create HTML with loading indicators for each image
+        readerBody.innerHTML = allPages.map((page, index) => {
+            const isPreloaded = index < preloadedPages.length;
+            
+            return `
+                <div id="image-container-${index}" style="
+                    margin-bottom: 20px; 
+                    width: 100%; 
+                    display: flex; 
+                    justify-content: center;
+                    position: relative;
+                    min-height: 200px;
+                    background: #111;
+                    border-radius: 10px;
+                    align-items: center;
+                ">
+                    ${!isPreloaded ? `
+                        <div id="loader-${index}" style="
+                            position: absolute;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            gap: 10px;
+                            z-index: 2;
+                        ">
+                            <div style="
+                                width: 40px;
+                                height: 40px;
+                                border: 3px solid rgba(139, 23, 182, 0.1);
+                                border-top: 3px solid var(--primary);
+                                border-radius: 50%;
+                                animation: spin 1s linear infinite;
+                            "></div>
+                            <span style="color: var(--text-muted); font-size: 0.8rem;">Loading page ${index + 1}...</span>
+                        </div>
+                    ` : ''}
+                    <img 
+                        id="img-${index}"
+                        src="${page}" 
+                        alt="Page ${index + 1}" 
+                        loading="${isPreloaded ? 'eager' : 'lazy'}"
+                        referrerpolicy="no-referrer"
+                        style="
+                            max-width: 100%;
+                            max-height: 95vh;
+                            border-radius: 10px;
+                            display: ${isPreloaded ? 'block' : 'none'};
+                            background: #1a1a2e;
+                            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                            opacity: ${isPreloaded ? '1' : '0'};
+                            transition: opacity 0.5s ease;
+                            z-index: 1;
+                            position: relative;
+                        "
+                        onerror="handleImageError(${index})"
+                    >
+                </div>
+            `;
+        }).join('');
+        
+        // Show preloaded images with fade-in effect
+        preloadedPages.forEach((_, index) => {
+            const img = document.getElementById(`img-${index}`);
+            if (img) {
+                img.style.display = 'block';
+                img.style.opacity = '0';
+                setTimeout(() => {
+                    img.style.opacity = '1';
+                }, 50 + index * 100);
+            }
+        });
     }
     
     const readerContainer = document.querySelector('.reader-container');
     if (readerContainer) readerContainer.scrollTop = 0;
 }
+
+// ============== LOAD REMAINING IMAGES INDIVIDUALLY ==============
+
+function loadRemainingImages(imageUrls) {
+    imageUrls.forEach((url, index) => {
+        // +3 because first 3 were preloaded
+        const actualIndex = index + 3;
+        const img = document.getElementById(`img-${actualIndex}`);
+        const loader = document.getElementById(`loader-${actualIndex}`);
+        const container = document.getElementById(`image-container-${actualIndex}`);
+        
+        if (!img) return;
+        
+        // Create new image to load
+        const loadImg = new Image();
+        loadImg.crossOrigin = 'anonymous';
+        
+        loadImg.onload = () => {
+            // Hide loader
+            if (loader) {
+                loader.style.display = 'none';
+            }
+            // Show image with fade
+            img.src = url;
+            img.style.display = 'block';
+            img.style.opacity = '0';
+            setTimeout(() => {
+                img.style.opacity = '1';
+            }, 100);
+            
+            console.log(`✅ Page ${actualIndex + 1} loaded`);
+        };
+        
+        loadImg.onerror = () => {
+            // Show error in container
+            if (loader) {
+                loader.innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <i class="fas fa-exclamation-circle" style="font-size:2rem; color:var(--error);"></i>
+                        <p style="color:var(--text-muted); margin-top:10px;">Failed to load page ${actualIndex + 1}</p>
+                        <button onclick="retryLoadImage(${actualIndex})" style="
+                            margin-top:10px;
+                            padding:5px 20px;
+                            background:var(--primary);
+                            border:none;
+                            border-radius:15px;
+                            color:white;
+                            cursor:pointer;
+                        ">🔄 Retry</button>
+                    </div>
+                `;
+            }
+            console.warn(`⚠️ Failed to load page ${actualIndex + 1}`);
+        };
+        
+        // Start loading
+        loadImg.src = url;
+        
+        // Timeout fallback
+        setTimeout(() => {
+            if (loader && loader.style.display !== 'none') {
+                loader.innerHTML = `
+                    <div style="text-align:center; padding:20px;">
+                        <i class="fas fa-clock" style="font-size:2rem; color:var(--warning);"></i>
+                        <p style="color:var(--text-muted); margin-top:10px;">Page ${actualIndex + 1} taking too long</p>
+                        <button onclick="retryLoadImage(${actualIndex})" style="
+                            margin-top:10px;
+                            padding:5px 20px;
+                            background:var(--primary);
+                            border:none;
+                            border-radius:15px;
+                            color:white;
+                            cursor:pointer;
+                        ">🔄 Retry</button>
+                    </div>
+                `;
+            }
+        }, 15000);
+    });
+}
+
+// ============== RETRY LOADING A SPECIFIC IMAGE ==============
+
+function retryLoadImage(index) {
+    const img = document.getElementById(`img-${index}`);
+    const loader = document.getElementById(`loader-${index}`);
+    const container = document.getElementById(`image-container-${index}`);
+    
+    if (!img) return;
+    
+    // Reset loader
+    if (loader) {
+        loader.innerHTML = `
+            <div style="
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            ">
+                <div style="
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid rgba(139, 23, 182, 0.1);
+                    border-top: 3px solid var(--primary);
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                "></div>
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Retrying...</span>
+            </div>
+        `;
+        loader.style.display = 'flex';
+    }
+    
+    // Get the URL from the img's src or from data attribute
+    const url = img.src;
+    
+    // Reload the image
+    const loadImg = new Image();
+    loadImg.crossOrigin = 'anonymous';
+    
+    loadImg.onload = () => {
+        if (loader) {
+            loader.style.display = 'none';
+        }
+        img.src = url;
+        img.style.display = 'block';
+        img.style.opacity = '0';
+        setTimeout(() => {
+            img.style.opacity = '1';
+        }, 100);
+        showToast(`✅ Page ${index + 1} loaded`, 'success');
+    };
+    
+    loadImg.onerror = () => {
+        if (loader) {
+            loader.innerHTML = `
+                <div style="text-align:center; padding:20px;">
+                    <i class="fas fa-exclamation-circle" style="font-size:2rem; color:var(--error);"></i>
+                    <p style="color:var(--text-muted); margin-top:10px;">Still failed</p>
+                    <button onclick="retryLoadImage(${index})" style="
+                        margin-top:10px;
+                        padding:5px 20px;
+                        background:var(--primary);
+                        border:none;
+                        border-radius:15px;
+                        color:white;
+                        cursor:pointer;
+                    ">🔄 Try Again</button>
+                </div>
+            `;
+        }
+        showToast(`❌ Failed to load page ${index + 1}`, 'error');
+    };
+    
+    loadImg.src = url;
+}
+
+// ============== HANDLE IMAGE ERROR ==============
+
+function handleImageError(index) {
+    const img = document.getElementById(`img-${index}`);
+    const loader = document.getElementById(`loader-${index}`);
+    
+    if (img) {
+        img.style.display = 'none';
+    }
+    
+    if (loader) {
+        loader.innerHTML = `
+            <div style="text-align:center; padding:20px;">
+                <i class="fas fa-exclamation-circle" style="font-size:2rem; color:var(--error);"></i>
+                <p style="color:var(--text-muted); margin-top:10px;">Failed to load page ${index + 1}</p>
+                <button onclick="retryLoadImage(${index})" style="
+                    margin-top:10px;
+                    padding:5px 20px;
+                    background:var(--primary);
+                    border:none;
+                    border-radius:15px;
+                    color:white;
+                    cursor:pointer;
+                ">🔄 Retry</button>
+            </div>
+        `;
+        loader.style.display = 'flex';
+    }
+}
+
 // ============== NAVIGATE CHAPTER ==============
 
 function navigateChapter(direction) {
@@ -3220,6 +3483,7 @@ function navigateChapter(direction) {
     console.log(`📖 Opening chapter ${newIndex + 1}/${currentChapters.length}`);
     openChapterReader(newIndex);
 }
+
 
     // ============== DOWNLOAD ==============
 
