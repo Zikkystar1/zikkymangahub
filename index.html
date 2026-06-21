@@ -2419,78 +2419,80 @@
         resultsContainer.appendChild(card);
     }
 
-    // ============== FETCH MANGA STATS FOR RATINGS ==============
+// ============== FETCH MANGA STATS FOR RATINGS ==============
 
-    async function fetchMangaStats(mangaList) {
-        try {
-            // ✅ Split into chunks of 15 to avoid 400 error
-            const chunkSize = 1;
-            const chunks = [];
+async function fetchMangaStats(mangaList) {
+    try {
+        console.log(`📊 Fetching stats for ${mangaList.length} manga (with 1s delay between each)`);
+        
+        const cards = resultsContainer.querySelectorAll('.manga-card');
+        let successCount = 0;
+        
+        for (let i = 0; i < mangaList.length; i++) {
+            const manga = mangaList[i];
             
-            for (let i = 0; i < mangaList.length; i += chunkSize) {
-                chunks.push(mangaList.slice(i, i + chunkSize));
-            }
-            
-            console.log(`📊 Fetching stats for ${mangaList.length} manga in ${chunks.length} chunks`);
-            
-            // Process each chunk separately
-            for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
-                const chunk = chunks[chunkIndex];
-                const mangaIds = chunk.map(m => m.id).join(',');
+            try {
+                // ✅ Add 1 second delay between requests to avoid rate limiting
+                if (i > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
                 
-                console.log(`📊 Processing chunk ${chunkIndex + 1}/${chunks.length} (${chunk.length} manga)`);
-                
-                const response = await fetch(`${MANGADEX_URL}/statistics/manga?manga=${mangaIds}`, {
+                // ✅ Use individual statistics endpoint
+                const response = await fetch(`${MANGADEX_URL}/statistics/manga/${manga.id}`, {
                     headers: FETCH_HEADERS
                 });
                 
                 if (!response.ok) {
-                    console.warn(`⚠️ Stats chunk ${chunkIndex + 1} failed:`, response.status);
+                    console.warn(`⚠️ Stats ${i+1}/${mangaList.length} failed: ${response.status}`);
                     continue;
                 }
                 
                 const data = await response.json();
-                const stats = data.statistics || {};
+                const mangaStats = data.statistics?.[manga.id];
                 
-                const cards = resultsContainer.querySelectorAll('.manga-card');
+                if (!mangaStats) continue;
                 
-                chunk.forEach((manga) => {
-                    const mangaStats = stats[manga.id];
-                    if (!mangaStats) return;
-                    
-                    let rating = 'N/A';
-                    if (mangaStats.rating) {
-                        if (mangaStats.rating.bayesian && mangaStats.rating.bayesian > 0) {
-                            rating = mangaStats.rating.bayesian.toFixed(1);
-                        } else if (mangaStats.rating.average && mangaStats.rating.average > 0) {
-                            rating = mangaStats.rating.average.toFixed(1);
-                        }
+                let rating = 'N/A';
+                if (mangaStats.rating) {
+                    if (mangaStats.rating.bayesian && mangaStats.rating.bayesian > 0) {
+                        rating = mangaStats.rating.bayesian.toFixed(1);
+                    } else if (mangaStats.rating.average && mangaStats.rating.average > 0) {
+                        rating = mangaStats.rating.average.toFixed(1);
                     }
-                    
-                    // Find card by data-manga-id
-                    let card = null;
-                    for (let i = 0; i < cards.length; i++) {
-                        if (cards[i].dataset.mangaId === manga.id) {
-                            card = cards[i];
-                            break;
-                        }
+                }
+                
+                // Find card by data-manga-id
+                let card = null;
+                for (let j = 0; j < cards.length; j++) {
+                    if (cards[j].dataset.mangaId === manga.id) {
+                        card = cards[j];
+                        break;
                     }
+                }
+                
+                if (card && rating !== 'N/A') {
+                    const ratingSpan = card.querySelector('.rating-span .rating-value');
+                    const starIcon = card.querySelector('.rating-span i.fa-star');
                     
-                    if (card && rating !== 'N/A') {
-                        const ratingSpan = card.querySelector('.rating-span .rating-value');
-                        const starIcon = card.querySelector('.rating-span i.fa-star');
-                        
-                        if (ratingSpan) {
-                            animateRatingCounter(ratingSpan, starIcon, parseFloat(rating));
-                        }
+                    if (ratingSpan) {
+                        animateRatingCounter(ratingSpan, starIcon, parseFloat(rating));
+                        successCount++;
                     }
-                });
+                }
+                
+                console.log(`📊 ${i+1}/${mangaList.length}: ${manga.attributes.title.en?.substring(0, 20) || 'Unknown'} → ⭐ ${rating}`);
+                
+            } catch (error) {
+                console.warn(`⚠️ Error for ${manga.id}:`, error.message);
             }
-            
-        } catch (error) {
-            console.warn('Stats fetch error:', error);
         }
+        
+        console.log(`✅ Done! ${successCount}/${mangaList.length} ratings loaded`);
+        
+    } catch (error) {
+        console.warn('⚠️ Stats fetch error:', error);
     }
+}
 
     // ============== ANIMATED RATING COUNTER ==============
 
