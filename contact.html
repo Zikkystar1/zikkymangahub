@@ -157,31 +157,46 @@ h1 {
     border: 1px solid rgba(0, 255, 234, 0.1);
 }
 
-.donate-section {
+/* ============== PORTFOLIO SECTION ============== */
+
+.portfolio-section {
     margin-top: 40px;
-    padding: 25px;
-    background: linear-gradient(135deg, rgba(139, 23, 182, 0.15), rgba(255, 42, 109, 0.1));
+    padding: 30px 25px;
+    background: linear-gradient(135deg, rgba(0, 255, 234, 0.08), rgba(139, 23, 182, 0.08));
     border-radius: 20px;
     text-align: center;
-    border: 1px solid rgba(139, 23, 182, 0.2);
+    border: 1px solid rgba(0, 255, 234, 0.15);
+    transition: 0.3s;
 }
 
-.donate-section h3 {
+.portfolio-section:hover {
+    border-color: rgba(0, 255, 234, 0.3);
+    box-shadow: 0 0 30px rgba(0, 255, 234, 0.05);
+}
+
+.portfolio-section h3 {
     color: white;
     margin-bottom: 8px;
+    font-size: 1.2rem;
 }
 
-.donate-section p {
+.portfolio-section h3 i {
+    color: #00ffea;
+    margin-right: 10px;
+}
+
+.portfolio-section p {
     color: #a0a0a0;
     font-size: 0.9rem;
+    margin-bottom: 15px;
 }
 
-.donate-btn {
+.portfolio-btn {
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 35px;
-    background: linear-gradient(135deg, #ff2a6d, #8b17b6);
+    gap: 12px;
+    padding: 14px 40px;
+    background: linear-gradient(135deg, #00ffea, #8b17b6);
     color: white;
     border: none;
     border-radius: 30px;
@@ -190,18 +205,39 @@ h1 {
     cursor: pointer;
     text-decoration: none;
     transition: 0.3s;
-    margin-top: 10px;
+    box-shadow: 0 0 20px rgba(0, 255, 234, 0.15);
 }
 
-.donate-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 30px rgba(255, 42, 109, 0.4);
+.portfolio-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 0 40px rgba(0, 255, 234, 0.3);
+}
+
+.portfolio-btn i {
+    font-size: 1.2rem;
+}
+
+.portfolio-footer {
+    margin-top: 12px;
+    font-size: 0.75rem;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.portfolio-footer i {
+    color: #00ffea;
+    opacity: 0.6;
 }
 
 @media (max-width: 600px) {
     .contact-container { padding: 25px; }
     h1 { font-size: 1.5rem; }
     .contact-grid { grid-template-columns: 1fr; }
+    .portfolio-section { padding: 20px 15px; }
+    .portfolio-btn { padding: 12px 25px; font-size: 0.9rem; }
 }
 </style>
 </head>
@@ -256,19 +292,22 @@ h1 {
 
 </div>
 
-<!-- Donate Section -->
-<div class="donate-section">
-<h3>❤️ Support ZIKKY</h3>
-<p>If these projects bring value to you, consider supporting future development!</p>
-<a href="#" class="donate-btn">
-<i class="fas fa-heart"></i> Donate Now
+<!-- ========== PORTFOLIO SECTION (UPDATED) ========== -->
+<div class="portfolio-section">
+    <h3><i class="fas fa-globe"></i> Check out my portfolio</h3>
+    <p>Explore my projects, skills, and what I'm building — see the full collection of my work!</p>
+<a href="https://zikkytech.xo.je" target="_blank" rel="noopener noreferrer" class="portfolio-btn">
+    <i class="fas fa-external-link-alt"></i> Visit Portfolio
 </a>
-<p style="margin-top:10px; font-size:0.75rem; color:#666;">
-☕ Every contribution fuels the next creation
-</p>
+    <div class="portfolio-footer">
+        <i class="fas fa-code"></i> 
+        <span>Built with ❤️ by ZIKKY — Every project tells a story</span>
+    </div>
 </div>
 
 </div>
 
 </body>
 </html>
+
+
