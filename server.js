@@ -4,7 +4,7 @@ const compression = require('compression');
 const helmet = require('helmet');
 const cors = require('cors');
 const axios = require('axios');
-const archiver = require('archiver'); // ✅ Added for ZIP creation
+const archiver = require('archiver');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -56,7 +56,7 @@ app.get('/api/proxy/manga/*', async (req, res) => {
         const apiPath = req.url.replace('/api/proxy/manga', '');
         const apiUrl = `https://api.mangadex.org${apiPath}`;
         
-        console.log('🔄 Proxying request to:', apiUrl);
+        // console.log('🔄 Proxying request to:', apiUrl);
         
         const response = await fetch(apiUrl, {
             headers: {
@@ -94,7 +94,7 @@ app.get('/api/proxy/image/*', async (req, res) => {
         const imagePath = req.url.replace('/api/proxy/image/', '');
         const imageUrl = `https://uploads.mangadex.org/${imagePath}`;
         
-        console.log('🔄 Proxying image:', imageUrl);
+        //console.log('🔄 Proxying image:', imageUrl);
         
         const response = await fetch(imageUrl, {
             headers: {

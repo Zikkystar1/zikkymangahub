@@ -3166,14 +3166,16 @@ function preloadImages(imageUrls) {
             return;
         }
         
-        // ✅ Display images (they're already preloaded!)
+        // ✅ FIXED: Better image handling with referrerpolicy
         readerBody.innerHTML = pages.map((page, index) => `
             <div style="margin-bottom: 20px; width: 100%; display: flex; justify-content: center;">
                 <img 
                     src="${page}" 
                     alt="Page ${index + 1}" 
                     loading="lazy"
-                    onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'text-align:center; padding:40px; background:#1a1a2e; border-radius:10px; color:#666; width:100%;\\'><i class=\\'fas fa-image\\' style=\\'font-size:2rem;\\'></i><p style=\\'margin-top:10px;\\'>Page ${index + 1} - Failed to load</p></div>';"
+                    referrerpolicy="no-referrer"
+                    crossorigin="anonymous"
+                    onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'text-align:center; padding:40px; background:#1a1a2e; border-radius:10px; color:#666; width:100%;\\'><i class=\\'fas fa-image\\' style=\\'font-size:2rem; color:var(--text-muted);\\'></i><p style=\\'margin-top:10px; color:var(--text-muted);\\'>Page ${index + 1} - Failed to load</p><button onclick=\\'this.parentElement.parentElement.querySelector(\\"img\\").style.display=\\"block\\"; this.parentElement.style.display=\\"none\\";\\' style=\\'margin-top:10px; padding:5px 20px; background:var(--primary); border:none; border-radius:15px; color:white; cursor:pointer;\\'>Retry</button></div>';"
                     style="max-width:100%; max-height:95vh; border-radius:10px; display:block; background:#1a1a2e; box-shadow: 0 4px 20px rgba(0,0,0,0.3);"
                 >
             </div>
@@ -3182,6 +3184,38 @@ function preloadImages(imageUrls) {
     
     const readerContainer = document.querySelector('.reader-container');
     if (readerContainer) readerContainer.scrollTop = 0;
+}
+
+// ============== NAVIGATE CHAPTER ==============
+
+function navigateChapter(direction) {
+    console.log(`🔄 Navigating ${direction}...`);
+    
+    if (!selectedChapter) {
+        console.warn('⚠️ No chapter selected');
+        showToast('No chapter loaded', 'error');
+        return;
+    }
+    
+    if (!currentChapters || currentChapters.length === 0) {
+        console.warn('⚠️ No chapters available');
+        showToast('No chapters available', 'error');
+        return;
+    }
+    
+    let newIndex = selectedChapter.index;
+    
+    if (direction === 'prev' && newIndex > 0) {
+        newIndex--;
+    } else if (direction === 'next' && newIndex < currentChapters.length - 1) {
+        newIndex++;
+    } else {
+        showToast(direction === 'prev' ? '📖 First chapter' : '📖 Last chapter', 'info');
+        return;
+    }
+    
+    console.log(`📖 Opening chapter ${newIndex + 1}/${currentChapters.length}`);
+    openChapterReader(newIndex);
 }
 
     // ============== DOWNLOAD ==============
