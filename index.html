@@ -3158,8 +3158,8 @@ function preloadBatch(imageUrls) {
             img.src = url;
         });
         
-        // Timeout fallback
-        setTimeout(resolve, 10000);
+        // ✅ Increased timeout to 20 seconds
+        setTimeout(resolve, 20000);
     });
 }
 
@@ -3313,6 +3313,7 @@ function loadRemainingImages(imageUrls) {
                             border-radius:15px;
                             color:white;
                             cursor:pointer;
+                            font-size:0.85rem;
                         ">🔄 Retry</button>
                     </div>
                 `;
@@ -3323,13 +3324,13 @@ function loadRemainingImages(imageUrls) {
         // Start loading
         loadImg.src = url;
         
-        // Timeout fallback
+        // ✅ Reduced timeout to 8 seconds
         setTimeout(() => {
             if (loader && loader.style.display !== 'none') {
                 loader.innerHTML = `
                     <div style="text-align:center; padding:20px;">
-                        <i class="fas fa-clock" style="font-size:2rem; color:var(--warning);"></i>
-                        <p style="color:var(--text-muted); margin-top:10px;">Page ${actualIndex + 1} taking too long</p>
+                        <i class="fas fa-clock" style="font-size:2rem; color:#ffa500;"></i>
+                        <p style="color:var(--text-muted); margin-top:10px;">Page ${actualIndex + 1} timed out</p>
                         <button onclick="retryLoadImage(${actualIndex})" style="
                             margin-top:10px;
                             padding:5px 20px;
@@ -3338,22 +3339,30 @@ function loadRemainingImages(imageUrls) {
                             border-radius:15px;
                             color:white;
                             cursor:pointer;
+                            font-size:0.85rem;
                         ">🔄 Retry</button>
                     </div>
                 `;
+                loader.style.display = 'flex';
             }
-        }, 15000);
+        }, 8000); // ✅ 8 seconds
     });
 }
 
 // ============== RETRY LOADING A SPECIFIC IMAGE ==============
 
-function retryLoadImage(index) {
+// ✅ Make retryLoadImage globally accessible
+window.retryLoadImage = function(index) {
+    console.log(`🔄 Retrying page ${index + 1}...`);
+    
     const img = document.getElementById(`img-${index}`);
     const loader = document.getElementById(`loader-${index}`);
     const container = document.getElementById(`image-container-${index}`);
     
-    if (!img) return;
+    if (!img) {
+        console.warn(`⚠️ Image element not found for index ${index}`);
+        return;
+    }
     
     // Reset loader
     if (loader) {
@@ -3378,7 +3387,7 @@ function retryLoadImage(index) {
         loader.style.display = 'flex';
     }
     
-    // Get the URL from the img's src or from data attribute
+    // Get the URL from the img's src
     const url = img.src;
     
     // Reload the image
@@ -3396,6 +3405,7 @@ function retryLoadImage(index) {
             img.style.opacity = '1';
         }, 100);
         showToast(`✅ Page ${index + 1} loaded`, 'success');
+        console.log(`✅ Page ${index + 1} retry successful`);
     };
     
     loadImg.onerror = () => {
@@ -3412,19 +3422,23 @@ function retryLoadImage(index) {
                         border-radius:15px;
                         color:white;
                         cursor:pointer;
+                        font-size:0.85rem;
                     ">🔄 Try Again</button>
                 </div>
             `;
+            loader.style.display = 'flex';
         }
         showToast(`❌ Failed to load page ${index + 1}`, 'error');
+        console.warn(`⚠️ Page ${index + 1} retry failed`);
     };
     
     loadImg.src = url;
-}
+};
 
 // ============== HANDLE IMAGE ERROR ==============
 
 function handleImageError(index) {
+    console.warn(`⚠️ Image error for page ${index + 1}`);
     const img = document.getElementById(`img-${index}`);
     const loader = document.getElementById(`loader-${index}`);
     
@@ -3445,6 +3459,7 @@ function handleImageError(index) {
                     border-radius:15px;
                     color:white;
                     cursor:pointer;
+                    font-size:0.85rem;
                 ">🔄 Retry</button>
             </div>
         `;
