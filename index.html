@@ -2936,12 +2936,10 @@ async function openChapterReader(index) {
     };
     
     try {
-        // ✅ Show reader with loading screen immediately
         detailsPage.style.display = 'none';
         readerPage.style.display = 'block';
         document.body.style.overflow = 'hidden';
         
-        // ✅ Show loading screen
         const readerBody = document.getElementById('readerBody');
         if (readerBody) {
             readerBody.innerHTML = `
@@ -3000,8 +2998,6 @@ async function openChapterReader(index) {
         }
         
         showToast('Loading chapter...', 'info');
-        
-        // ✅ Update progress
         updateLoadingProgress(20);
         
         const response = await fetch(`${MANGADEX_URL}/at-home/server/${selectedChapter.id}`, {
@@ -3016,21 +3012,35 @@ async function openChapterReader(index) {
         
         updateLoadingProgress(70);
         
-        const pages = data.chapter.data.map(page => 
-            `${data.baseUrl}/data/${data.chapter.hash}/${page}`
+        // ✅ Build image URLs
+        const baseUrl = data.baseUrl;
+        const chapterHash = data.chapter.hash;
+        const pageFilenames = data.chapter.data || [];
+        
+        // ✅ Option 1: Direct MangaDex URLs
+        const pages = pageFilenames.map(filename => 
+            `${baseUrl}/data/${chapterHash}/${filename}`
         );
+        
+        // ✅ Option 2: Via proxy (uncomment if direct doesn't work)
+        // const pages = pageFilenames.map(filename => 
+        //     `/api/proxy/image/data/${chapterHash}/${filename}`
+        // );
+        
+        // 🔍 Debug: Log URLs
+        console.log('📸 Image URLs:', pages);
+        console.log('📸 First image:', pages[0]);
         
         updateLoadingProgress(85);
         
-        // ✅ Preload images before displaying
-        const preloadedImages = await preloadImages(pages);
+        // ✅ Preload images
+        await preloadImages(pages);
         
         updateLoadingProgress(100);
         
-        // ✅ Display the reader with fully loaded images
+        // ✅ Display the reader
         displayReader(pages);
         
-        // ✅ Small delay to show 100% before hiding loading screen
         setTimeout(() => {
             const loadingScreen = document.getElementById('loadingScreen');
             if (loadingScreen) {
