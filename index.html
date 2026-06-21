@@ -2423,43 +2423,60 @@
 
 async function fetchMangaStats(mangaList) {
     try {
-        console.log(`📊 Fetching stats for ${mangaList.length} manga (with 1s delay between each)`);
+        console.log(`📊 Fetching stats for ${mangaList.length} manga (3 at a time)`);
         
         const cards = resultsContainer.querySelectorAll('.manga-card');
         let successCount = 0;
         
-        for (let i = 0; i < mangaList.length; i++) {
-            const manga = mangaList[i];
+        // ✅ Process 3 at a time
+        const batchSize = 3;
+        
+        for (let i = 0; i < mangaList.length; i += batchSize) {
+            const batch = mangaList.slice(i, i + batchSize);
             
-            try {
-                // ✅ Add 1 second delay between requests to avoid rate limiting
-                if (i > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-                
-                // ✅ Use individual statistics endpoint
-                const response = await fetch(`${MANGADEX_URL}/statistics/manga/${manga.id}`, {
-                    headers: FETCH_HEADERS
-                });
-                
-                if (!response.ok) {
-                    console.warn(`⚠️ Stats ${i+1}/${mangaList.length} failed: ${response.status}`);
-                    continue;
-                }
-                
-                const data = await response.json();
-                const mangaStats = data.statistics?.[manga.id];
-                
-                if (!mangaStats) continue;
-                
-                let rating = 'N/A';
-                if (mangaStats.rating) {
-                    if (mangaStats.rating.bayesian && mangaStats.rating.bayesian > 0) {
-                        rating = mangaStats.rating.bayesian.toFixed(1);
-                    } else if (mangaStats.rating.average && mangaStats.rating.average > 0) {
-                        rating = mangaStats.rating.average.toFixed(1);
+            console.log(`📊 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(mangaList.length / batchSize)} (${batch.length} manga)`);
+            
+            // Fetch all manga in this batch in parallel
+            const batchPromises = batch.map(async (manga) => {
+                try {
+                    const response = await fetch(`${MANGADEX_URL}/statistics/manga/${manga.id}`, {
+                        headers: FETCH_HEADERS
+                    });
+                    
+                    if (!response.ok) {
+                        return { manga, rating: 'N/A' };
                     }
+                    
+                    const data = await response.json();
+                    const mangaStats = data.statistics?.[manga.id];
+                    
+                    if (!mangaStats) {
+                        return { manga, rating: 'N/A' };
+                    }
+                    
+                    let rating = 'N/A';
+                    if (mangaStats.rating) {
+                        if (mangaStats.rating.bayesian && mangaStats.rating.bayesian > 0) {
+                            rating = mangaStats.rating.bayesian.toFixed(1);
+                        } else if (mangaStats.rating.average && mangaStats.rating.average > 0) {
+                            rating = mangaStats.rating.average.toFixed(1);
+                        }
+                    }
+                    
+                    return { manga, rating };
+                    
+                } catch (error) {
+                    console.warn(`⚠️ Error for ${manga.id}:`, error.message);
+                    return { manga, rating: 'N/A' };
                 }
+            });
+            
+            // Wait for all requests in this batch to complete
+            const batchResults = await Promise.all(batchPromises);
+            
+            // Process results
+            batchResults.forEach(({ manga, rating }) => {
+                if (rating === 'N/A') return;
                 
                 // Find card by data-manga-id
                 let card = null;
@@ -2470,24 +2487,24 @@ async function fetchMangaStats(mangaList) {
                     }
                 }
                 
-                if (card && rating !== 'N/A') {
+                if (card) {
                     const ratingSpan = card.querySelector('.rating-span .rating-value');
                     const starIcon = card.querySelector('.rating-span i.fa-star');
                     
-                    if (ratingSpan) {
+                    if (ratingSpan && rating !== 'N/A') {
                         animateRatingCounter(ratingSpan, starIcon, parseFloat(rating));
                         successCount++;
                     }
                 }
-                
-                console.log(`📊 ${i+1}/${mangaList.length}: ${manga.attributes.title.en?.substring(0, 20) || 'Unknown'} → ⭐ ${rating}`);
-                
-            } catch (error) {
-                console.warn(`⚠️ Error for ${manga.id}:`, error.message);
+            });
+            
+            // ✅ Small delay between batches (300ms) to avoid rate limiting
+            if (i + batchSize < mangaList.length) {
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
         
-        console.log(`✅ Done! ${successCount}/${mangaList.length} ratings loaded`);
+        console.log(`✅ Done! ${successCount}/${mangaList.length} ratings loaded in ~${Math.round(mangaList.length / 3 * 0.3)}s`);
         
     } catch (error) {
         console.warn('⚠️ Stats fetch error:', error);
