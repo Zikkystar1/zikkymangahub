@@ -2424,7 +2424,7 @@
     async function fetchMangaStats(mangaList) {
         try {
             // ✅ Split into chunks of 15 to avoid 400 error
-            const chunkSize = 15;
+            const chunkSize = 2;
             const chunks = [];
             
             for (let i = 0; i < mangaList.length; i += chunkSize) {
