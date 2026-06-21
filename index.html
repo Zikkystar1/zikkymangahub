@@ -119,6 +119,37 @@
         animation: borderGlow 4s infinite;
     }
 
+/* ============== CONTACT & SUPPORT BUTTON ============== */
+
+.nav-links #supportBtn {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    color: var(--secondary);
+    font-weight: 600;
+    transition: var(--transition);
+}
+
+.nav-links #supportBtn:hover {
+    color: #fff;
+    background: rgba(0, 255, 234, 0.1);
+    box-shadow: 0 0 20px rgba(0, 255, 234, 0.15);
+}
+
+.nav-links #supportBtn i {
+    color: var(--secondary);
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .nav-links #supportBtn {
+        margin-top: 10px;
+        padding-top: 12px;
+        text-align: center;
+        justify-content: center;
+    }
+}
+
     @keyframes borderGlow {
         0%, 100% { border-bottom-color: var(--primary); }
         33% { border-bottom-color: var(--secondary); }
@@ -1547,29 +1578,40 @@
     <div class="particles" id="particles"></div>
 
     <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-brand">
-            <div class="brand-logo">
-                <i class="fas fa-book-open"></i>
-            </div>
-            <span class="brand-name">ZIKKY<span class="brand-highlight">MANGA</span></span>
+<nav class="navbar">
+    <div class="nav-brand">
+        <div class="brand-logo">
+            <i class="fas fa-book-open"></i>
         </div>
+        <span class="brand-name">ZIKKY<span class="brand-highlight">MANGA</span></span>
+    </div>
+    
+    <div class="menu-toggle" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </div>
+
+    <div class="nav-links" id="navLinks">
+        <a href="#home" class="active" id="homeBtn"><i class="fas fa-home"></i> Home</a>
+        <a href="#popular" id="popularBtn"><i class="fas fa-fire"></i> Popular</a>
+        <a href="#bookmarks" id="bookmarksBtn"><i class="fas fa-bookmark"></i> Bookmarks</a>
+        <a href="#downloads" id="downloadsBtn"><i class="fas fa-download"></i> Downloads</a>
         
-        <div class="menu-toggle" id="menuToggle">
-            <i class="fas fa-bars"></i>
-        </div>
+        <!-- ✅ Contact & Support Button -->
+        <a href="https://zikky-tech.xo.je" target="_blank" id="supportBtn" style="
+            margin-top: 12px;
+            border-top: 1px solid var(--border);
+            padding-top: 14px;
+            color: var(--secondary);
+            font-weight: 600;
+        ">
+            <i class="fas fa-headset"></i> Contact & Support
+        </a>
+    </div>
 
-        <div class="nav-links" id="navLinks">
-            <a href="#home" class="active" id="homeBtn"><i class="fas fa-home"></i> Home</a>
-            <a href="#popular" id="popularBtn"><i class="fas fa-fire"></i> Popular</a>
-            <a href="#bookmarks" id="bookmarksBtn"><i class="fas fa-bookmark"></i> Bookmarks</a>
-            <a href="#downloads" id="downloadsBtn"><i class="fas fa-download"></i> Downloads</a>
-        </div>
-
-        <button class="theme-toggle" id="themeToggle">
-            <i class="fas fa-moon"></i>
-        </button>
-    </nav>
+    <button class="theme-toggle" id="themeToggle">
+        <i class="fas fa-moon"></i>
+    </button>
+</nav>
 
     <!-- Main Container -->
     <div class="main-container" id="mainContainer">
@@ -1754,7 +1796,7 @@
     let searchInput, searchBtn, menuToggle, themeToggle, backToTop, refreshBtn, toastContainer;
     let backFromDetails, backFromReader, prevChapterBtn, nextChapterBtn, downloadCurrentBtn;
     let downloadOptionsModal, closeModalBtns, startDownloadBtn;
-    let homeBtn, popularBtn, bookmarksBtn, downloadsBtn;
+    let homeBtn, popularBtn, bookmarksBtn, downloadsBtn, supportBtn;
 
     // ============== HISTORY MANAGEMENT FOR BACK BUTTON ==============
 
@@ -1868,6 +1910,7 @@
         popularBtn = document.getElementById('popularBtn');
         bookmarksBtn = document.getElementById('bookmarksBtn');
         downloadsBtn = document.getElementById('downloadsBtn');
+        supportBtn = document.getElementById('supportBtn');
         
         if (mainContainer) mainContainer.style.display = 'block';
     }
