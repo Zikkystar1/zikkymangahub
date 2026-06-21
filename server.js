@@ -163,400 +163,326 @@ app.get('/api/download/chapter/:chapterId', async (req, res) => {
         
         const safeTitle = mangaTitle.replace(/[^a-z0-9]/gi, '_').substring(0, 30);
         
-        // ============================================
-        // MODE 1: NORMAL - Download images one by one
-        // ============================================
-        if (mode === 'normal') {
-            console.log(`📄 Normal mode: Sending ${pageFilenames.length} images individually`);
+// ============================================
+// MODE 1: NORMAL - Download images one by one
+// ============================================
+if (mode === 'normal') {
+    console.log(`📄 Normal mode: Sending ${pageFilenames.length} images individually`);
+    
+    res.setHeader('Content-Type', 'text/html');
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Downloading ${mangaTitle} - Chapter ${chapterNumber}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { 
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                    background: #0a0a12; 
+                    color: #f0f0f0; 
+                    padding: 20px; 
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center;
+                    min-height: 100vh;
+                }
+                .container {
+                    max-width: 900px;
+                    width: 100%;
+                    background: rgba(18,18,28,0.95);
+                    border-radius: 20px;
+                    padding: 30px;
+                    border: 2px solid #8b17b6;
+                    box-shadow: 0 0 40px rgba(139,23,182,0.2);
+                }
+                h1 { 
+                    color: #8b17b6; 
+                    text-align: center;
+                    margin-bottom: 5px;
+                    font-size: 1.8rem;
+                }
+                .subtitle {
+                    text-align: center;
+                    color: #a0a0a0;
+                    margin-bottom: 25px;
+                    font-size: 0.95rem;
+                }
+                .subtitle span { color: #00ffea; }
+                .info-box {
+                    text-align:center; 
+                    margin:20px 0; 
+                    padding:15px; 
+                    background:rgba(0,255,136,0.05); 
+                    border-radius:10px; 
+                    border:1px solid rgba(0,255,136,0.15);
+                }
+                .info-box p { color: #00ff88; margin-bottom:5px; }
+                .info-box small { color: var(--text-muted); font-size:0.85rem; }
+                .btn {
+                    display: inline-block;
+                    padding: 12px 35px;
+                    background: linear-gradient(135deg, #8b17b6, #ff2a6d);
+                    color: white;
+                    border: none;
+                    border-radius: 25px;
+                    cursor: pointer;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    text-decoration: none;
+                    transition: all 0.3s ease;
+                }
+                .btn:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 5px 20px rgba(139,23,182,0.4);
+                }
+                .btn-download-all {
+                    background: linear-gradient(135deg, #00ffea, #8b17b6);
+                }
+                .btn-download-all:hover {
+                    box-shadow: 0 5px 20px rgba(0,255,234,0.3);
+                }
+                .btn-download-all:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                    transform: none;
+                }
+                .download-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+                    gap: 8px;
+                    margin: 15px 0;
+                    max-height: 400px;
+                    overflow-y: auto;
+                    padding: 5px;
+                }
+                .download-grid::-webkit-scrollbar { width: 4px; }
+                .download-grid::-webkit-scrollbar-thumb { background: #8b17b6; border-radius: 2px; }
+                .download-item {
+                    background: rgba(139,23,182,0.08);
+                    border: 1px solid rgba(139,23,182,0.2);
+                    border-radius: 8px;
+                    padding: 10px 8px;
+                    text-align: center;
+                    transition: all 0.3s ease;
+                }
+                .download-item:hover {
+                    background: rgba(139,23,182,0.2);
+                    transform: translateY(-2px);
+                }
+                .download-item.downloaded {
+                    border-color: #00ff88;
+                    background: rgba(0,255,136,0.1);
+                }
+                .download-item a {
+                    color: #00ffea;
+                    text-decoration: none;
+                    font-size: 0.8rem;
+                    display: block;
+                }
+                .download-item a:hover { color: #fff; }
+                .download-item .page-number {
+                    color: #666;
+                    font-size: 0.6rem;
+                    display: block;
+                    margin-top: 2px;
+                }
+                .stats {
+                    text-align: center;
+                    color: #a0a0a0;
+                    font-size: 0.9rem;
+                    margin-top: 15px;
+                    padding-top: 15px;
+                    border-top: 1px solid rgba(255,255,255,0.05);
+                }
+                .footer-actions {
+                    display: flex;
+                    justify-content: center;
+                    gap: 15px;
+                    margin-top: 20px;
+                    flex-wrap: wrap;
+                }
+                .back-btn {
+                    display: inline-block;
+                    padding: 8px 25px;
+                    background: transparent;
+                    border: 2px solid #8b17b6;
+                    color: #f0f0f0;
+                    border-radius: 20px;
+                    text-decoration: none;
+                    transition: all 0.3s ease;
+                    font-size: 0.9rem;
+                }
+                .back-btn:hover {
+                    background: #8b17b6;
+                    color: white;
+                }
+                .footer {
+                    text-align: center;
+                    color: #444;
+                    font-size: 0.7rem;
+                    margin-top: 20px;
+                }
+                .progress-text {
+                    text-align: center;
+                    margin-top: 10px;
+                    color: #a0a0a0;
+                    font-size: 0.9rem;
+                }
+                @media (max-width: 600px) {
+                    .container { padding: 15px; }
+                    h1 { font-size: 1.3rem; }
+                    .download-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
+                    .download-item { padding: 6px 4px; }
+                    .download-item a { font-size: 0.65rem; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📥 ${mangaTitle}</h1>
+                <p class="subtitle">Chapter <span>${chapterNumber}</span> • ${pageFilenames.length} pages • <span>Normal Mode</span></p>
+                
+                <div class="info-box">
+                    <p>✅ Click any page below to download it individually</p>
+                    <small>Or use "Download All" to get everything at once</small>
+                </div>
+                
+                <div style="text-align:center; margin:15px 0;">
+                    <button class="btn btn-download-all" id="downloadAllBtn" onclick="downloadAll()">
+                        ⬇️ Download All Pages
+                    </button>
+                    <div class="progress-text" id="progressText" style="margin-top:10px;"></div>
+                </div>
+                
+                <div class="download-grid" id="downloadGrid">
+                    ${pageFilenames.map((filename, index) => {
+                        const ext = filename.split('.').pop() || 'jpg';
+                        const imageUrl = `${baseUrl}/${quality}/${chapterHash}/${filename}`;
+                        return `
+                            <div class="download-item" id="item-${index}">
+                                <a href="${imageUrl}" download="page_${String(index + 1).padStart(3, '0')}.${ext}" class="page-link" data-index="${index}" target="_blank">
+                                    Page ${index + 1}
+                                </a>
+                                <span class="page-number">${ext.toUpperCase()}</span>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                
+                <div class="stats">
+                    📊 Total: ${pageFilenames.length} pages
+                </div>
+                
+                <div class="footer-actions">
+                    <a href="/" class="back-btn">← Back to Home</a>
+                    <button class="back-btn" onclick="window.location.reload()" style="border-color:#00ffea; color:#00ffea;">
+                        🔄 Refresh
+                    </button>
+                </div>
+                
+                <div class="footer">
+                    ZIKKY MANGA HUB • Downloaded at ${new Date().toLocaleString()}
+                </div>
+            </div>
             
-            res.setHeader('Content-Type', 'text/html');
-            res.send(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>Downloading ${mangaTitle} - Chapter ${chapterNumber}</title>
-                    <style>
-                        * { margin: 0; padding: 0; box-sizing: border-box; }
-                        body { 
-                            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                            background: #0a0a12; 
-                            color: #f0f0f0; 
-                            padding: 20px; 
-                            display: flex; 
-                            flex-direction: column; 
-                            align-items: center;
-                            min-height: 100vh;
-                        }
-                        .container {
-                            max-width: 900px;
-                            width: 100%;
-                            background: rgba(18,18,28,0.95);
-                            border-radius: 20px;
-                            padding: 30px;
-                            border: 2px solid #8b17b6;
-                            box-shadow: 0 0 40px rgba(139,23,182,0.2);
-                        }
-                        h1 { 
-                            color: #8b17b6; 
-                            text-align: center;
-                            margin-bottom: 5px;
-                            font-size: 1.8rem;
-                        }
-                        .subtitle {
-                            text-align: center;
-                            color: #a0a0a0;
-                            margin-bottom: 25px;
-                            font-size: 0.95rem;
-                        }
-                        .subtitle span {
-                            color: #00ffea;
-                        }
-                        .progress-section {
-                            background: rgba(0,0,0,0.3);
-                            border-radius: 12px;
-                            padding: 20px;
-                            margin-bottom: 20px;
-                        }
-                        .progress-bar {
-                            width: 100%;
-                            height: 8px;
-                            background: rgba(255,255,255,0.1);
-                            border-radius: 4px;
-                            overflow: hidden;
-                            margin: 10px 0;
-                        }
-                        .progress-fill {
-                            height: 100%;
-                            background: linear-gradient(90deg, #8b17b6, #00ffea);
-                            width: 0%;
-                            transition: width 0.3s ease;
-                            border-radius: 4px;
-                        }
-                        .progress-text {
-                            display: flex;
-                            justify-content: space-between;
-                            color: #a0a0a0;
-                            font-size: 0.85rem;
-                        }
-                        .auto-download {
-                            text-align: center;
-                            margin: 15px 0;
-                            padding: 15px;
-                            background: rgba(0,255,234,0.05);
-                            border-radius: 10px;
-                            border: 1px solid rgba(0,255,234,0.15);
-                        }
-                        .auto-download p {
-                            color: #00ffea;
-                            margin-bottom: 10px;
-                        }
-                        .btn {
-                            display: inline-block;
-                            padding: 10px 30px;
-                            background: linear-gradient(135deg, #8b17b6, #ff2a6d);
-                            color: white;
-                            border: none;
-                            border-radius: 25px;
-                            cursor: pointer;
-                            font-size: 1rem;
-                            font-weight: 600;
-                            text-decoration: none;
-                            transition: all 0.3s ease;
-                        }
-                        .btn:hover {
-                            transform: translateY(-2px);
-                            box-shadow: 0 5px 20px rgba(139,23,182,0.4);
-                        }
-                        .btn-download-all {
-                            background: linear-gradient(135deg, #00ffea, #8b17b6);
-                        }
-                        .btn-download-all:hover {
-                            box-shadow: 0 5px 20px rgba(0,255,234,0.3);
-                        }
-                        .download-grid {
-                            display: grid;
-                            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-                            gap: 8px;
-                            margin: 15px 0;
-                            max-height: 400px;
-                            overflow-y: auto;
-                            padding: 5px;
-                        }
-                        .download-grid::-webkit-scrollbar {
-                            width: 4px;
-                        }
-                        .download-grid::-webkit-scrollbar-thumb {
-                            background: #8b17b6;
-                            border-radius: 2px;
-                        }
-                        .download-item {
-                            background: rgba(139,23,182,0.08);
-                            border: 1px solid rgba(139,23,182,0.2);
-                            border-radius: 8px;
-                            padding: 10px 8px;
-                            text-align: center;
-                            transition: all 0.3s ease;
-                        }
-                        .download-item:hover {
-                            background: rgba(139,23,182,0.2);
-                            transform: translateY(-2px);
-                        }
-                        .download-item.downloaded {
-                            border-color: #00ff88;
-                            background: rgba(0,255,136,0.1);
-                        }
-                        .download-item a {
-                            color: #00ffea;
-                            text-decoration: none;
-                            font-size: 0.8rem;
-                            display: block;
-                        }
-                        .download-item a:hover {
-                            color: #fff;
-                        }
-                        .download-item .page-number {
-                            color: #666;
-                            font-size: 0.6rem;
-                            display: block;
-                            margin-top: 2px;
-                        }
-                        .download-item .status-icon {
-                            font-size: 0.7rem;
-                            display: block;
-                            margin-top: 2px;
-                        }
-                        .stats {
-                            text-align: center;
-                            color: #a0a0a0;
-                            font-size: 0.9rem;
-                            margin-top: 15px;
-                            padding-top: 15px;
-                            border-top: 1px solid rgba(255,255,255,0.05);
-                        }
-                        .footer-actions {
-                            display: flex;
-                            justify-content: center;
-                            gap: 15px;
-                            margin-top: 20px;
-                            flex-wrap: wrap;
-                        }
-                        .back-btn {
-                            display: inline-block;
-                            padding: 8px 25px;
-                            background: transparent;
-                            border: 2px solid #8b17b6;
-                            color: #f0f0f0;
-                            border-radius: 20px;
-                            text-decoration: none;
-                            transition: all 0.3s ease;
-                            font-size: 0.9rem;
-                        }
-                        .back-btn:hover {
-                            background: #8b17b6;
-                            color: white;
-                        }
-                        .footer {
-                            text-align: center;
-                            color: #444;
-                            font-size: 0.7rem;
-                            margin-top: 20px;
-                        }
-                        .toast {
-                            position: fixed;
-                            bottom: 30px;
-                            left: 50%;
-                            transform: translateX(-50%);
-                            background: rgba(0,0,0,0.9);
-                            color: #fff;
-                            padding: 12px 25px;
-                            border-radius: 10px;
-                            border: 1px solid #8b17b6;
-                            font-size: 0.9rem;
-                            display: none;
-                            z-index: 1000;
-                            backdrop-filter: blur(10px);
-                        }
-                        .toast.show {
-                            display: block;
-                            animation: fadeInUp 0.3s ease;
-                        }
-                        @keyframes fadeInUp {
-                            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-                            to { opacity: 1; transform: translateX(-50%) translateY(0); }
-                        }
-                        @media (max-width: 600px) {
-                            .container { padding: 15px; }
-                            h1 { font-size: 1.3rem; }
-                            .download-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); }
-                            .download-item { padding: 6px 4px; }
-                            .download-item a { font-size: 0.65rem; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1>📥 ${mangaTitle}</h1>
-                        <p class="subtitle">Chapter <span>${chapterNumber}</span> • ${pageFilenames.length} pages • <span>Normal Mode</span></p>
-                        
-                        <div class="progress-section">
-                            <div class="progress-text">
-                                <span id="progressLabel">Starting download...</span>
-                                <span id="progressCount">0 / ${pageFilenames.length}</span>
-                            </div>
-                            <div class="progress-bar">
-                                <div class="progress-fill" id="progressFill"></div>
-                            </div>
-                        </div>
-                        
-                        <div class="auto-download">
-                            <p>🔄 Downloads will start automatically</p>
-                            <button class="btn btn-download-all" onclick="downloadAll()">
-                                ⬇️ Download All Pages
-                            </button>
-                            <button class="btn" onclick="downloadAll()" style="margin-left:10px; background:linear-gradient(135deg, #00ff88, #00cc66);">
-                                ⚡ Quick Download
-                            </button>
-                        </div>
-                        
-                        <div class="download-grid" id="downloadGrid">
-                            ${pageFilenames.map((filename, index) => {
-                                const ext = filename.split('.').pop() || 'jpg';
-                                const imageUrl = `${baseUrl}/${quality}/${chapterHash}/${filename}`;
-                                return `
-                                    <div class="download-item" id="item-${index}">
-                                        <a href="${imageUrl}" download="page_${String(index + 1).padStart(3, '0')}.${ext}" class="page-link" data-index="${index}">
-                                            Page ${index + 1}
-                                        </a>
-                                        <span class="page-number">${ext.toUpperCase()}</span>
-                                        <span class="status-icon" id="status-${index}">⏳</span>
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                        
-                        <div class="stats">
-                            📊 Total: ${pageFilenames.length} pages • ${(pageFilenames.length * 0.5).toFixed(1)} MB estimated
-                        </div>
-                        
-                        <div class="footer-actions">
-                            <a href="/" class="back-btn">← Back to Home</a>
-                            <button class="back-btn" onclick="window.location.reload()" style="border-color:#00ffea; color:#00ffea;">
-                                🔄 Refresh
-                            </button>
-                        </div>
-                        
-                        <div class="footer">
-                            ZIKKY MANGA HUB • Downloaded at ${new Date().toLocaleString()}
-                        </div>
-                    </div>
+            <script>
+                let downloadIndex = 0;
+                let totalPages = ${pageFilenames.length};
+                let isDownloading = false;
+                
+                const links = document.querySelectorAll('.page-link');
+                const downloadBtn = document.getElementById('downloadAllBtn');
+                const progressText = document.getElementById('progressText');
+                
+                function downloadAll() {
+                    if (isDownloading) {
+                        alert('⚠️ Download already in progress!');
+                        return;
+                    }
                     
-                    <div class="toast" id="toast"></div>
+                    if (totalPages === 0) {
+                        alert('No pages to download!');
+                        return;
+                    }
                     
-                    <script>
-                        let downloadIndex = 0;
-                        let totalPages = ${pageFilenames.length};
-                        let isDownloading = false;
-                        let completedCount = 0;
-                        
-                        const links = document.querySelectorAll('.page-link');
-                        const progressFill = document.getElementById('progressFill');
-                        const progressLabel = document.getElementById('progressLabel');
-                        const progressCount = document.getElementById('progressCount');
-                        const toast = document.getElementById('toast');
-                        
-                        function showToast(message, isSuccess = true) {
-                            toast.textContent = message;
-                            toast.style.borderColor = isSuccess ? '#00ff88' : '#ff2a6d';
-                            toast.classList.add('show');
-                            setTimeout(() => toast.classList.remove('show'), 3000);
+                    isDownloading = true;
+                    downloadIndex = 0;
+                    
+                    downloadBtn.textContent = '⏳ Starting...';
+                    downloadBtn.disabled = true;
+                    progressText.textContent = 'Preparing downloads...';
+                    
+                    // Start downloading after a short delay
+                    setTimeout(downloadNext, 500);
+                }
+                
+                function downloadNext() {
+                    if (downloadIndex >= links.length) {
+                        isDownloading = false;
+                        downloadBtn.textContent = '✅ All Downloaded!';
+                        downloadBtn.style.background = 'linear-gradient(135deg, #00ff88, #00cc66)';
+                        downloadBtn.disabled = false;
+                        progressText.textContent = '🎉 All ' + totalPages + ' pages downloaded successfully!';
+                        return;
+                    }
+                    
+                    const link = links[downloadIndex];
+                    
+                    // ✅ Open each image in a new tab for download
+                    // This prevents the current page from being replaced
+                    window.open(link.href, '_blank');
+                    
+                    // Mark as downloaded visually
+                    const item = document.getElementById('item-' + downloadIndex);
+                    if (item) {
+                        item.style.borderColor = '#00ff88';
+                        item.style.background = 'rgba(0,255,136,0.1)';
+                    }
+                    
+                    // Update progress
+                    const percent = ((downloadIndex + 1) / totalPages * 100).toFixed(0);
+                    downloadBtn.textContent = \`⏳ Downloading \${downloadIndex + 1}/\${totalPages} (\${percent}%)\`;
+                    progressText.textContent = \`⬇️ Downloading page \${downloadIndex + 1} of \${totalPages}\`;
+                    
+                    downloadIndex++;
+                    
+                    // Download next with a slight delay (800ms between downloads)
+                    setTimeout(downloadNext, 800);
+                }
+                
+                // Individual download tracking
+                document.querySelectorAll('.page-link').forEach((link, index) => {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        // Open in new tab
+                        window.open(this.href, '_blank');
+                        // Mark as clicked
+                        const item = document.getElementById('item-' + index);
+                        if (item) {
+                            item.style.borderColor = '#ffd700';
+                            item.style.background = 'rgba(255,215,0,0.1)';
                         }
-                        
-                        function updateProgress() {
-                            const percent = (completedCount / totalPages) * 100;
-                            progressFill.style.width = Math.min(percent, 100) + '%';
-                            progressCount.textContent = completedCount + ' / ' + totalPages;
-                            
-                            if (completedCount === totalPages) {
-                                progressLabel.textContent = '✅ All pages downloaded!';
-                                progressFill.style.background = 'linear-gradient(90deg, #00ff88, #00ffea)';
-                                showToast('✅ All pages downloaded successfully!', true);
-                            } else {
-                                progressLabel.textContent = '⬇️ Downloading page ' + (completedCount + 1) + ' of ' + totalPages;
-                            }
+                    });
+                });
+                
+                // Keyboard shortcut: Press 'A' to download all
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'a' || e.key === 'A') {
+                        if (!e.ctrlKey && !e.metaKey) {
+                            downloadAll();
                         }
-                        
-                        function markDownloaded(index) {
-                            const item = document.getElementById('item-' + index);
-                            const status = document.getElementById('status-' + index);
-                            if (item) item.classList.add('downloaded');
-                            if (status) status.textContent = '✅';
-                            completedCount++;
-                            updateProgress();
-                        }
-                        
-                        function downloadAll() {
-                            if (isDownloading) {
-                                showToast('⚠️ Download already in progress', false);
-                                return;
-                            }
-                            isDownloading = true;
-                            downloadIndex = 0;
-                            completedCount = 0;
-                            progressFill.style.width = '0%';
-                            progressFill.style.background = 'linear-gradient(90deg, #8b17b6, #00ffea)';
-                            showToast('🚀 Starting download of all pages...', true);
-                            downloadNext();
-                        }
-                        
-                        function downloadNext() {
-                            if (downloadIndex >= links.length) {
-                                isDownloading = false;
-                                progressLabel.textContent = '🎉 All downloads complete!';
-                                return;
-                            }
-                            
-                            const link = links[downloadIndex];
-                            const index = parseInt(link.dataset.index);
-                            
-                            // Create a temporary anchor to trigger download
-                            const tempLink = document.createElement('a');
-                            tempLink.href = link.href;
-                            tempLink.download = link.download;
-                            document.body.appendChild(tempLink);
-                            tempLink.click();
-                            document.body.removeChild(tempLink);
-                            
-                            // Mark as downloaded
-                            markDownloaded(index);
-                            
-                            downloadIndex++;
-                            
-                            // Download next after delay (300ms between downloads)
-                            setTimeout(downloadNext, 350);
-                        }
-                        
-                        // Manual click handler for individual downloads
-                        document.querySelectorAll('.page-link').forEach((link) => {
-                            link.addEventListener('click', function(e) {
-                                const index = parseInt(this.dataset.index);
-                                // Don't auto-mark on manual click - let the user see it
-                                setTimeout(() => {
-                                    markDownloaded(index);
-                                }, 500);
-                            });
-                        });
-                        
-                        // Auto-start download after page loads
-                        setTimeout(downloadAll, 1500);
-                    </script>
-                </body>
-                </html>
-            `);
-            return;
-        }
-        
+                    }
+                });
+            </script>
+        </body>
+        </html>
+    `);
+    return;
+}
+
         // ============================================
         // MODE 2: COMPRESSED - Download as ZIP
         // ============================================

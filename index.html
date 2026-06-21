@@ -2882,15 +2882,13 @@ function showDownloadOptions(index) {
         qualityOptions.querySelector('.quality-option').style.background = 'var(--hover)';
     }
     
-    const progress = document.getElementById('downloadProgress');
-    if (progress) {
-        progress.style.display = 'none';
-        progress.classList.remove('show');
-    }
-    
-    // ✅ Add a note about how Normal mode works
+    // ✅ Add info note
     const modalBody = document.querySelector('.modal-body');
-    if (modalBody && !modalBody.querySelector('.download-info-note')) {
+    if (modalBody) {
+        // Remove old note if exists
+        const oldNote = modalBody.querySelector('.download-info-note');
+        if (oldNote) oldNote.remove();
+        
         const note = document.createElement('div');
         note.className = 'download-info-note';
         note.style.cssText = `
@@ -2904,9 +2902,15 @@ function showDownloadOptions(index) {
         `;
         note.innerHTML = `
             <i class="fas fa-info-circle" style="color:var(--primary);"></i>
-            <span>Normal mode opens a new page with all images. Downloads start automatically.</span>
+            <span>Normal mode opens a new page. Click "Download All" to start downloading.</span>
         `;
         modalBody.insertBefore(note, modalBody.querySelector('.download-progress'));
+    }
+    
+    const progress = document.getElementById('downloadProgress');
+    if (progress) {
+        progress.style.display = 'none';
+        progress.classList.remove('show');
     }
     
     downloadOptionsModal.style.display = 'block';
@@ -2969,16 +2973,23 @@ async function startDownload() {
             if (progressFill) progressFill.style.width = '100%';
             if (progressText) progressText.textContent = 'Opening download page...';
             
-            // ✅ FIX: Open in new tab with a slight delay
-            // This prevents the page from being closed immediately
+            // ✅ FIX: Open in new tab with window.open
+            // Use a small delay to ensure the browser doesn't block it
             setTimeout(() => {
-                window.open(downloadUrl, '_blank');
-            }, 300);
+                const newWindow = window.open(downloadUrl, '_blank');
+                if (!newWindow) {
+                    // If popup is blocked, show message
+                    showToast('⚠️ Please allow popups for this site', 'error');
+                    // Fallback: open in same window with warning
+                    if (confirm('Popup blocked! Open in current window?')) {
+                        window.location.href = downloadUrl;
+                    }
+                }
+            }, 500);
             
-            // ✅ Save to downloads history
             saveDownloadHistory(selectedChapter.mangaTitle, selectedChapter.number, 'normal');
             
-            showToast('✅ Download page opened! Images will download automatically.', 'success');
+            showToast('💎 Download page opened! Click "Download All" to start 💌', 'success');
             
             setTimeout(() => {
                 if (progress) {
@@ -3030,11 +3041,11 @@ async function startDownload() {
         URL.revokeObjectURL(url);
         
         if (progressFill) progressFill.style.width = '100%';
-        if (progressText) progressText.textContent = '✅ Download complete!';
+        if (progressText) progressText.textContent = '📢 Download complete 🧧';
         
         saveDownloadHistory(selectedChapter.mangaTitle, selectedChapter.number, 'compressed');
         
-        showToast('✅ ZIP download complete!', 'success');
+        showToast('🎉 Uploading File To Your Device 🧧', 'success');
         
         setTimeout(() => {
             if (progress) {
