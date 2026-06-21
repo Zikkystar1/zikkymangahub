@@ -1515,6 +1515,31 @@
             font-size: 0.9rem;
         }
     }
+    /* ============== LOADING SCREEN ANIMATION ============== */
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#loadingScreen {
+    animation: fadeInLoading 0.5s ease;
+}
+
+@keyframes fadeInLoading {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+/* Loading spinner pulse */
+#loadingScreen .spinner {
+    animation: pulseSpinner 1.5s ease-in-out infinite;
+}
+
+@keyframes pulseSpinner {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
 </style>
 </head>
 <body>
@@ -2898,102 +2923,266 @@ async function fetchMangaStats(mangaList) {
 
     // ============== READER ==============
 
-    let selectedChapter = null;
+let selectedChapter = null;
 
-    async function openChapterReader(index) {
-        if (index < 0 || index >= currentChapters.length) return;
+async function openChapterReader(index) {
+    if (index < 0 || index >= currentChapters.length) return;
+    
+    selectedChapter = {
+        index,
+        id: currentChapters[index].id,
+        number: currentChapters[index].attributes.chapter || (index + 1),
+        mangaTitle: selectedManga.title
+    };
+    
+    try {
+        // ✅ Show reader with loading screen immediately
+        detailsPage.style.display = 'none';
+        readerPage.style.display = 'block';
+        document.body.style.overflow = 'hidden';
         
-        selectedChapter = {
-            index,
-            id: currentChapters[index].id,
-            number: currentChapters[index].attributes.chapter || (index + 1),
-            mangaTitle: selectedManga.title
-        };
-        
-        try {
-            showToast('Loading chapter...', 'info');
-            
-            const response = await fetch(`${MANGADEX_URL}/at-home/server/${selectedChapter.id}`, {
-                headers: FETCH_HEADERS
-            });
-            
-            if (!response.ok) throw new Error('Failed to load chapter');
-            
-            const data = await response.json();
-            
-            const pages = data.chapter.data.map(page => 
-                `${data.baseUrl}/data/${data.chapter.hash}/${page}`
-            );
-            
-            detailsPage.style.display = 'none';
-            readerPage.style.display = 'block';
-            document.body.style.overflow = 'hidden';
-            
-            // ✅ Push reader state for back button
-            pushViewState('reader', { 
-                chapterIndex: index, 
-                chapterId: selectedChapter.id,
-                chapterNumber: selectedChapter.number 
-            });
-            
-            displayReader(pages);
-            
-        } catch (error) {
-            console.error('Error loading chapter:', error);
-            showToast('Failed to load chapter: ' + error.message, 'error');
-        }
-    }
-
-    function displayReader(pages) {
+        // ✅ Show loading screen
         const readerBody = document.getElementById('readerBody');
-        const readerTitle = document.getElementById('readerTitle');
-        const chapterIndicator = document.getElementById('chapterIndicator');
-        
-        if (readerTitle) {
-            readerTitle.textContent = selectedManga.title;
-        }
-        
-        if (chapterIndicator) {
-            chapterIndicator.textContent = `Chapter ${selectedChapter.number}/${currentChapters.length}`;
-        }
-        
         if (readerBody) {
-            if (!pages || pages.length === 0) {
-                readerBody.innerHTML = '<div style="text-align:center; padding:50px; color:var(--text-muted);">No pages available</div>';
-                return;
-            }
-            
-            readerBody.innerHTML = pages.map((page, index) => 
-                `<img 
-                    src="${page}" 
-                    alt="Page ${index + 1}" 
-                    loading="lazy" 
-                    onerror="this.src='https://via.placeholder.com/800x1200?text=Page+${index+1}+Error'"
-                    style="max-width:100%; max-height:95vh; border-radius:10px; display:block;"
-                >`
-            ).join('');
+            readerBody.innerHTML = `
+                <div id="loadingScreen" style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 70vh;
+                    width: 100%;
+                    padding: 40px;
+                    text-align: center;
+                ">
+                    <div style="
+                        width: 60px;
+                        height: 60px;
+                        border: 4px solid rgba(139, 23, 182, 0.1);
+                        border-top: 4px solid var(--primary);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    "></div>
+                    <p style="
+                        margin-top: 25px;
+                        color: var(--text-muted);
+                        font-size: 1.1rem;
+                        font-weight: 500;
+                    ">
+                        📖 Loading Chapter ${selectedChapter.number}...
+                    </p>
+                    <p style="
+                        margin-top: 8px;
+                        color: var(--text-muted);
+                        font-size: 0.85rem;
+                        opacity: 0.7;
+                    ">
+                        ${selectedManga.title}
+                    </p>
+                    <div style="
+                        margin-top: 20px;
+                        width: 200px;
+                        height: 4px;
+                        background: rgba(255,255,255,0.05);
+                        border-radius: 2px;
+                        overflow: hidden;
+                    ">
+                        <div id="loadingProgress" style="
+                            height: 100%;
+                            width: 0%;
+                            background: linear-gradient(90deg, var(--primary), var(--secondary));
+                            border-radius: 2px;
+                            transition: width 0.5s ease;
+                        "></div>
+                    </div>
+                </div>
+            `;
         }
         
-        const readerContainer = document.querySelector('.reader-container');
-        if (readerContainer) readerContainer.scrollTop = 0;
+        showToast('Loading chapter...', 'info');
+        
+        // ✅ Update progress
+        updateLoadingProgress(20);
+        
+        const response = await fetch(`${MANGADEX_URL}/at-home/server/${selectedChapter.id}`, {
+            headers: FETCH_HEADERS
+        });
+        
+        if (!response.ok) throw new Error('Failed to load chapter');
+        
+        updateLoadingProgress(50);
+        
+        const data = await response.json();
+        
+        updateLoadingProgress(70);
+        
+        const pages = data.chapter.data.map(page => 
+            `${data.baseUrl}/data/${data.chapter.hash}/${page}`
+        );
+        
+        updateLoadingProgress(85);
+        
+        // ✅ Preload images before displaying
+        const preloadedImages = await preloadImages(pages);
+        
+        updateLoadingProgress(100);
+        
+        // ✅ Display the reader with fully loaded images
+        displayReader(pages);
+        
+        // ✅ Small delay to show 100% before hiding loading screen
+        setTimeout(() => {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen) {
+                loadingScreen.style.transition = 'opacity 0.5s ease';
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 500);
+            }
+        }, 400);
+        
+    } catch (error) {
+        console.error('Error loading chapter:', error);
+        showToast('Failed to load chapter: ' + error.message, 'error');
+        
+        const readerBody = document.getElementById('readerBody');
+        if (readerBody) {
+            readerBody.innerHTML = `
+                <div style="
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 60vh;
+                    padding: 40px;
+                    text-align: center;
+                ">
+                    <i class="fas fa-exclamation-triangle" style="font-size:3rem; color:var(--error);"></i>
+                    <h3 style="color:var(--text); margin-top:20px;">Failed to Load Chapter</h3>
+                    <p style="color:var(--text-muted); margin-top:10px;">${error.message}</p>
+                    <button onclick="location.reload()" style="
+                        margin-top: 25px;
+                        padding: 12px 35px;
+                        background: linear-gradient(135deg, var(--primary), var(--accent));
+                        border: none;
+                        border-radius: 25px;
+                        color: white;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 1rem;
+                        transition: var(--transition);
+                    ">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+            `;
+        }
     }
+}
 
-    function navigateChapter(direction) {
-        if (!selectedChapter || !currentChapters.length) return;
+// ============== UPDATE LOADING PROGRESS ==============
+
+function updateLoadingProgress(percentage) {
+    const progressBar = document.getElementById('loadingProgress');
+    if (progressBar) {
+        progressBar.style.width = Math.min(percentage, 100) + '%';
+    }
+}
+
+// ============== PRELOAD IMAGES ==============
+
+function preloadImages(imageUrls) {
+    return new Promise((resolve) => {
+        let loadedCount = 0;
+        const totalImages = imageUrls.length;
         
-        let newIndex = selectedChapter.index;
-        
-        if (direction === 'prev' && newIndex > 0) {
-            newIndex--;
-        } else if (direction === 'next' && newIndex < currentChapters.length - 1) {
-            newIndex++;
-        } else {
-            showToast(direction === 'prev' ? 'First chapter' : 'Last chapter', 'info');
+        if (totalImages === 0) {
+            resolve();
             return;
         }
         
-        openChapterReader(newIndex);
+        // ✅ Update progress as images load
+        function updateProgress() {
+            loadedCount++;
+            const percent = Math.min(85 + (loadedCount / totalImages) * 15, 99);
+            updateLoadingProgress(percent);
+        }
+        
+        // Load each image
+        imageUrls.forEach((url, index) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = () => {
+                updateProgress();
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            };
+            
+            img.onerror = () => {
+                // Still count as loaded even if error (show placeholder)
+                updateProgress();
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            };
+            
+            // Start loading
+            img.src = url;
+            
+            // If image takes too long, still resolve
+            setTimeout(() => {
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            }, 15000); // 15 second timeout
+        });
+    });
+}
+
+    function displayReader(pages) {
+    const readerBody = document.getElementById('readerBody');
+    const readerTitle = document.getElementById('readerTitle');
+    const chapterIndicator = document.getElementById('chapterIndicator');
+    
+    if (readerTitle) {
+        readerTitle.textContent = selectedManga.title;
     }
+    
+    if (chapterIndicator) {
+        chapterIndicator.textContent = `Chapter ${selectedChapter.number}/${currentChapters.length}`;
+    }
+    
+    if (readerBody) {
+        if (!pages || pages.length === 0) {
+            readerBody.innerHTML = `
+                <div style="text-align:center; padding:50px; color:var(--text-muted);">
+                    <i class="fas fa-exclamation-circle" style="font-size:3rem; color:var(--error);"></i>
+                    <p style="margin-top:20px;">No pages available</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // ✅ Display images (they're already preloaded!)
+        readerBody.innerHTML = pages.map((page, index) => `
+            <div style="margin-bottom: 20px; width: 100%; display: flex; justify-content: center;">
+                <img 
+                    src="${page}" 
+                    alt="Page ${index + 1}" 
+                    loading="lazy"
+                    onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=\\'text-align:center; padding:40px; background:#1a1a2e; border-radius:10px; color:#666; width:100%;\\'><i class=\\'fas fa-image\\' style=\\'font-size:2rem;\\'></i><p style=\\'margin-top:10px;\\'>Page ${index + 1} - Failed to load</p></div>';"
+                    style="max-width:100%; max-height:95vh; border-radius:10px; display:block; background:#1a1a2e; box-shadow: 0 4px 20px rgba(0,0,0,0.3);"
+                >
+            </div>
+        `).join('');
+    }
+    
+    const readerContainer = document.querySelector('.reader-container');
+    if (readerContainer) readerContainer.scrollTop = 0;
+}
 
     // ============== DOWNLOAD ==============
 
