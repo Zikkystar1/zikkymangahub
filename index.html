@@ -3171,59 +3171,24 @@ function preloadImages(imageUrls) {
             return;
         }
         
-        // ✅ BEST: Create images with JavaScript error handling
-        readerBody.innerHTML = '';
-        
-        pages.forEach((page, index) => {
-            const container = document.createElement('div');
-            container.style.marginBottom = '20px';
-            container.style.width = '100%';
-            container.style.display = 'flex';
-            container.style.justifyContent = 'center';
-            
-            const img = document.createElement('img');
-            img.src = page;
-            img.alt = `Page ${index + 1}`;
-            img.loading = 'lazy';
-            img.referrerPolicy = 'no-referrer';
-            img.style.maxWidth = '100%';
-            img.style.maxHeight = '95vh';
-            img.style.borderRadius = '10px';
-            img.style.display = 'block';
-            img.style.background = '#1a1a2e';
-            img.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
-            
-            // ✅ Error handler with JavaScript
-            img.onerror = function() {
-                this.style.display = 'none';
-                const errorDiv = document.createElement('div');
-                errorDiv.style.textAlign = 'center';
-                errorDiv.style.padding = '40px';
-                errorDiv.style.background = '#1a1a2e';
-                errorDiv.style.borderRadius = '10px';
-                errorDiv.style.color = '#666';
-                errorDiv.style.width = '100%';
-                
-                errorDiv.innerHTML = `
-                    <i class="fas fa-image" style="font-size:2rem;"></i>
-                    <p style="margin-top:10px;">Page ${index + 1} - Failed to load</p>
-                    <button onclick="location.reload()" style="margin-top:10px; padding:5px 20px; background:#8b17b6; border:none; border-radius:15px; color:white; cursor:pointer;">
-                        🔄 Retry
-                    </button>
-                `;
-                
-                container.appendChild(errorDiv);
-            };
-            
-            container.appendChild(img);
-            readerBody.appendChild(container);
-        });
+        // ✅ Clean and simple - no code rendering issues
+        readerBody.innerHTML = pages.map((page, index) => `
+            <div style="margin-bottom: 20px; width: 100%; display: flex; justify-content: center;">
+                <img 
+                    src="${page}" 
+                    alt="Page ${index + 1}" 
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                    onerror="this.src='https://via.placeholder.com/800x1200/333/666?text=Error+${index+1}'"
+                    style="max-width:100%; max-height:95vh; border-radius:10px; display:block; background:#1a1a2e; box-shadow: 0 4px 20px rgba(0,0,0,0.3);"
+                >
+            </div>
+        `).join('');
     }
     
     const readerContainer = document.querySelector('.reader-container');
     if (readerContainer) readerContainer.scrollTop = 0;
 }
-
 // ============== NAVIGATE CHAPTER ==============
 
 function navigateChapter(direction) {
